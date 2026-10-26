@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DIU TDAH — Questionnaire & Ressources</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3.2.0/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --s1:#3B82F6;--s1l:#EFF6FF;--s1d:#1D4ED8;
+  --s2:#0D9488;--s2l:#F0FDFA;--s2d:#0F766E;
+  --s3:#8B5CF6;--s3l:#F5F3FF;--s3d:#6D28D9;
+  --s4:#F97316;--s4l:#FFF7ED;--s4d:#C2410C;
+  --s5:#16A34A;--s5l:#F0FDF4;--s5d:#15803D;
+  --s6:#DB2777;--s6l:#FDF2F8;--s6d:#9D174D;
+  --primary:#6366F1;--primary-d:#4F46E5;
+  --gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;
+  --gray-500:#6B7280;--gray-700:#374151;--gray-900:#111827;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--gray-50);color:var(--gray-900);min-height:100vh}
+.app-header{background:linear-gradient(135deg,#6366F1 0%,#8B5CF6 50%,#EC4899 100%);padding:1.25rem 1.5rem;display:flex;align-items:center;gap:1rem;box-shadow:0 4px 20px rgba(99,102,241,0.4)}
+.app-header h1{color:#fff;font-size:1.35rem;font-weight:700;letter-spacing:-0.02em}
+.app-header .badge{background:rgba(255,255,255,0.2);color:#fff;font-size:.7rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;backdrop-filter:blur(4px)}
+.nav{background:#fff;border-bottom:1px solid var(--gray-200);padding:0 1.5rem;display:flex;gap:.25rem;overflow-x:auto;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.nav button{background:none;border:none;padding:.75rem 1rem;font-size:.85rem;font-weight:500;color:var(--gray-500);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s}
+.nav button.active{color:var(--primary);border-bottom-color:var(--primary)}
+.nav button:hover:not(.active){color:var(--gray-700)}
+.container{max-width:900px;margin:0 auto;padding:1.5rem}
+.card{background:#fff;border-radius:1rem;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden;margin-bottom:1.25rem}
+.card-header{padding:1.25rem 1.5rem 1rem;border-bottom:1px solid var(--gray-100)}
+.card-body{padding:1.25rem 1.5rem}
+.session-badge{display:inline-block;padding:.3rem .8rem;border-radius:999px;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.s1-badge{background:var(--s1);color:#fff} .s2-badge{background:var(--s2);color:#fff}
+.s3-badge{background:var(--s3);color:#fff} .s4-badge{background:var(--s4);color:#fff}
+.s5-badge{background:var(--s5);color:#fff} .s6-badge{background:var(--s6);color:#fff}
+.s1-card .card-header{background:linear-gradient(135deg,var(--s1l),#fff);border-top:3px solid var(--s1)}
+.s2-card .card-header{background:linear-gradient(135deg,var(--s2l),#fff);border-top:3px solid var(--s2)}
+.s3-card .card-header{background:linear-gradient(135deg,var(--s3l),#fff);border-top:3px solid var(--s3)}
+.s4-card .card-header{background:linear-gradient(135deg,var(--s4l),#fff);border-top:3px solid var(--s4)}
+.s5-card .card-header{background:linear-gradient(135deg,var(--s5l),#fff);border-top:3px solid var(--s5)}
+.s6-card .card-header{background:linear-gradient(135deg,var(--s6l),#fff);border-top:3px solid var(--s6)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1.2rem;border-radius:.6rem;font-size:.875rem;font-weight:600;border:none;cursor:pointer;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-d));color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.35)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,.45)}
+.btn-secondary{background:var(--gray-100);color:var(--gray-700)}
+.btn-secondary:hover{background:var(--gray-200)}
+.btn-danger{background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff}
+.btn-sm{padding:.35rem .75rem;font-size:.8rem}
+.btn-green{background:linear-gradient(135deg,#16A34A,#15803D);color:#fff}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:.82rem;font-weight:600;color:var(--gray-700);margin-bottom:.35rem}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:.65rem .9rem;border:1.5px solid var(--gray-200);border-radius:.6rem;font-size:.9rem;transition:border-color .2s;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+.stars-row{display:flex;gap:.35rem}
+.star{font-size:1.5rem;cursor:pointer;transition:transform .15s;line-height:1}
+.star:hover{transform:scale(1.2)}
+.alert{padding:.85rem 1.1rem;border-radius:.75rem;font-size:.875rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:.6rem}
+.alert-success{background:#DCFCE7;color:#166534;border:1px solid #BBF7D0}
+.alert-error{background:#FEE2E2;color:#991B1B;border:1px solid #FECACA}
+.alert-info{background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE}
+.alert-warning{background:#FFFBEB;color:#92400E;border:1px solid #FDE68A}
+.progress-bar{height:.4rem;background:var(--gray-200);border-radius:999px;overflow:hidden;margin-top:.5rem}
+.progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary),#8B5CF6);transition:width .3s}
+.tag{display:inline-block;padding:.2rem .6rem;border-radius:.4rem;font-size:.7rem;font-weight:600;margin:.15rem}
+.participant-card{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:.75rem;padding:1rem;margin-bottom:.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.msg-bubble{padding:.85rem 1.1rem;border-radius:.85rem;margin-bottom:.75rem;max-width:80%}
+.msg-bubble.sent{background:linear-gradient(135deg,var(--primary),var(--primary-d));color:#fff;margin-left:auto}
+.msg-bubble.received{background:var(--gray-100);color:var(--gray-900)}
+.resource-item{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border:1px solid var(--gray-200);border-radius:.6rem;margin-bottom:.5rem;text-decoration:none;color:inherit;background:#fff;transition:all .2s}
+.resource-item:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(99,102,241,.15);transform:translateX(3px)}
+.resource-icon{width:2.2rem;height:2.2rem;border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.icon-pdf{background:linear-gradient(135deg,#FEE2E2,#FCA5A5)} 
+.icon-video{background:linear-gradient(135deg,#DBEAFE,#93C5FD)}
+.icon-audio{background:linear-gradient(135deg,#D1FAE5,#6EE7B7)}
+.icon-doc{background:linear-gradient(135deg,#EDE9FE,#C4B5FD)}
+.chip{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .6rem;border-radius:.4rem;font-size:.72rem;font-weight:600;background:var(--gray-100);color:var(--gray-600)}
+.section-title{font-size:1.1rem;font-weight:700;color:var(--gray-900);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.divider{border:none;border-top:1px solid var(--gray-200);margin:1.25rem 0}
+.spinner{display:inline-block;width:1.2rem;height:1.2rem;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.welcome-hero{background:linear-gradient(135deg,#6366F1 0%,#8B5CF6 50%,#EC4899 100%);border-radius:1.25rem;padding:2.5rem 2rem;text-align:center;color:#fff;margin-bottom:1.5rem;position:relative;overflow:hidden}
+.welcome-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(255,255,255,.08) 0%,transparent 60%);pointer-events:none}
+.welcome-hero h2{font-size:1.8rem;font-weight:800;margin-bottom:.75rem;letter-spacing:-.03em}
+.welcome-hero p{font-size:1rem;opacity:.9;max-width:500px;margin:0 auto 1.5rem}
+.promo-select-pill{background:rgba(255,255,255,.2);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:.4rem 1rem;color:#fff;font-size:.8rem;font-weight:600;display:inline-block;margin-bottom:.75rem}
+.stat-card{background:#fff;border-radius:.85rem;padding:1.1rem 1.25rem;border:1px solid var(--gray-200);text-align:center}
+.stat-card .value{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--primary),#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-card .label{font-size:.75rem;color:var(--gray-500);font-weight:500;margin-top:.2rem}
+.admin-section{background:linear-gradient(135deg,#FFF7ED,#FEF3C7);border:1px solid #FDE68A;border-radius:.85rem;padding:1rem 1.25rem;margin-bottom:1rem}
+.tab-pills{display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.tab-pill{padding:.45rem 1rem;border-radius:999px;font-size:.82rem;font-weight:600;border:1.5px solid var(--gray-200);background:#fff;color:var(--gray-600);cursor:pointer;transition:all .2s}
+.tab-pill.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDX_sXlmXrC8uOB0ilLeu0gOGupiGDuync",
+  authDomain: "du-tdah-ups.firebaseapp.com",
+  projectId: "du-tdah-ups",
+  storageBucket: "du-tdah-ups.firebasestorage.app",
+  messagingSenderId: "330128999760",
+  appId: "1:330128999760:web:93ce2ea667ce4c35175855"
+};
+const EMAILJS_CONFIG = {
+  serviceId: "service_5hazt24",
+  templateId: "template_dbsxqoo",
+  publicKey: "F5T4EeLVCb9bw835w"
+};
+const ADMIN_PASSWORD = "0071";
+const PROMOS = ["2025-2026","2026-2027"];
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
+if(EMAILJS_CONFIG.publicKey && !EMAILJS_CONFIG.publicKey.startsWith("REMPLACER")){
+  emailjs.init(EMAILJS_CONFIG.publicKey);
+}
+
+/* ===== SESSIONS DATA ===== */
+const SESSION_COLORS = {1:'s1',2:'s2',3:'s3',4:'s4',5:'s5',6:'s6'};
+const SESSION_NAMES = {
+  1:'Session 1 — Introduction & Diagnostics',
+  2:'Session 2 — Clinique & Évaluation',
+  3:'Session 3 — Traitements & Interventions',
+  4:'Session 4 — Comorbidités & Situations spéciales',
+  5:'Session 5 — Prise en charge globale',
+  6:'Session 6 — Enjeux transversaux & Perspectives'
+};
+const SESSIONS = [
+  {id:'S1',num:1,courses:[
+    {id:'S1C1',title:'Introduction commune aux TND et au TDAH',teacher:'Pr Bonnot'},
+    {id:'S1C2',title:'Critères diagnostiques chez l\'enfant',teacher:'Dr Acquaviva'},
+    {id:'S1C3',title:'Critères diagnostiques chez l\'adulte',teacher:'Dr Weibel'},
+    {id:'S1C4',title:'Troubles psychiatriques associés au TDAH',teacher:'Pr Bonnot'},
+    {id:'S1C5',title:'Neuropsychologie du TDAH',teacher:'Dr Chazal'},
+    {id:'S1C6',title:'Historique du TDAH',teacher:'Pr Bonnot'},
+    {id:'S1C7',title:'Génétique et neurobiologie',teacher:'Dr Martinez'},
+    {id:'S1C8',title:'Examen psychologique de l\'enfant',teacher:'Mme Rouselle'}
+  ]},
+  {id:'S2',num:2,courses:[
+    {id:'S2C1',title:'Bilan neuropsychologique — protocoles',teacher:'Dr Chazal'},
+    {id:'S2C2',title:'Cas cliniques et échelles d\'évaluation',teacher:'Dr Moscoso'},
+    {id:'S2C3',title:'Imagerie et biomarqueurs',teacher:'Pr Laurent'},
+    {id:'S2C4',title:'TDAH et haut potentiel intellectuel',teacher:'Dr Weibel'},
+    {id:'S2C5',title:'Évaluation chez la femme',teacher:'Dr Bernard'},
+    {id:'S2C6',title:'Dépistage en médecine générale',teacher:'Dr Dupont'},
+    {id:'S2C7',title:'Annonce diagnostique',teacher:'Pr Bonnot'},
+    {id:'S2C8',title:'Outils numériques d\'évaluation',teacher:'Dr Perrin'}
+  ]},
+  {id:'S3',num:3,courses:[
+    {id:'S3C1',title:'Médicaments psychostimulants : mécanismes',teacher:'Pr Bonnot'},
+    {id:'S3C2',title:'Méthylphénidate : pratique clinique',teacher:'Dr Acquaviva'},
+    {id:'S3C3',title:'Atomoxétine et autres non-stimulants',teacher:'Dr Weibel'},
+    {id:'S3C4',title:'Stratégies de prescription',teacher:'Dr Moscoso'},
+    {id:'S3C5',title:'Remédiation cognitive',teacher:'Dr Chazal'},
+    {id:'S3C6',title:'Psychoéducation patient et famille',teacher:'Pr Laurent'},
+    {id:'S3C7',title:'Thérapies cognitivo-comportementales',teacher:'Dr Bernard'},
+    {id:'S3C8',title:'Neurofeedback et TDAH',teacher:'Dr Perrin'},
+    {id:'S3C9',title:'Médecines complémentaires',teacher:'Dr Dupont'},
+    {id:'S3C10',title:'Approche multimodale — synthèse',teacher:'Pr Bonnot'}
+  ]},
+  {id:'S4',num:4,courses:[
+    {id:'S4C1',title:'TDAH et troubles anxieux',teacher:'Dr Bernard'},
+    {id:'S4C2',title:'TDAH et dépression',teacher:'Dr Weibel'},
+    {id:'S4C3',title:'TDAH et troubles des conduites',teacher:'Dr Acquaviva'},
+    {id:'S4C4',title:'TDAH et troubles du spectre autistique',teacher:'Pr Laurent'},
+    {id:'S4C5',title:'TDAH et addictions',teacher:'Dr Moscoso'},
+    {id:'S4C6',title:'TDAH et troubles dys',teacher:'Dr Chazal'},
+    {id:'S4C7',title:'TDAH et épilepsie',teacher:'Dr Perrin'}
+  ]},
+  {id:'S5',num:5,courses:[
+    {id:'S5C1',title:'Scolarisation et aménagements scolaires',teacher:'Mme Rouselle'},
+    {id:'S5C2',title:'Accompagnement familial',teacher:'Dr Bernard'},
+    {id:'S5C3',title:'TDAH et insertion professionnelle',teacher:'Dr Dupont'},
+    {id:'S5C4',title:'TDAH à l\'âge adulte : spécificités',teacher:'Dr Weibel'},
+    {id:'S5C5',title:'Coordination ville-hôpital',teacher:'Pr Bonnot'},
+    {id:'S5C6',title:'Droit et TDAH',teacher:'M. Legrand'},
+    {id:'S5C7',title:'Réseau de soins et parcours patient',teacher:'Dr Moscoso'},
+    {id:'S5C8',title:'Perspectives internationales',teacher:'Pr Laurent'}
+  ]},
+  {id:'S6',num:6,courses:[
+    {id:'S6C1',title:'TDAH et genre',teacher:'Dr Bernard'},
+    {id:'S6C2',title:'TDAH et périnatalité',teacher:'Dr Weibel'},
+    {id:'S6C3',title:'Recherche actuelle et essais cliniques',teacher:'Pr Bonnot'},
+    {id:'S6C4',title:'Intelligence artificielle et TDAH',teacher:'Dr Perrin'},
+    {id:'S6C5',title:'Éthique et TDAH',teacher:'Dr Chazal'},
+    {id:'S6C6',title:'Synthèse et perspectives',teacher:'Pr Bonnot'}
+  ]}
+];
+
+/* ===== DROPBOX RESOURCES (Session 1) ===== */
+const DROPBOX_RESOURCES = {
+  'S1C1':[{type:'pptx',label:'Cours introductif TND/TDAH (Bonnot)',url:'https://www.dropbox.com/scl/fi/9lv6ia2rwcjw8iui5mu3a/Cours-Introductif-commun-TND-TDAH-Bonnot-2026-2027.pptx?rlkey=xqwxg6x4tguop92ebc3lln3oc&dl=0'}],
+  'S1C2':[
+    {type:'pptx',label:'Critères diagnostiques enfant (Bonnot)',url:'https://www.dropbox.com/scl/fi/05t3nqm4d9ybqrqqwdhz3/Criteres-diagnostiques-enfant-Bonnot-2026-2027.pptx?rlkey=il9wagpob9ivt6d0d8qvvu3f2&dl=0'},
+    {type:'video',label:'Vidéo cours — Critères diagnostiques (Acquaviva)',url:'https://www.dropbox.com/scl/fi/sg2scbrvf14jcw10vzjjg/Cours-TDAH-Crit-res-diagnostics-Eric-Acquavive.mov?rlkey=0uubj3d6rheljujv5kvpsx95u&dl=0'}
+  ],
+  'S1C4':[{type:'pptx',label:'Troubles psychiatriques associés au TDAH (Bonnot)',url:'https://www.dropbox.com/scl/fi/fenue1gr0rvsuoadk2xhg/Troubles-psychiatriques-associes-au-TDAH-Bonnot-2026-2027.pptx?rlkey=miysee268bln0n9hq1glmtdz5&dl=0'}],
+  'S1C6':[{type:'pptx',label:'Historique du TDAH (Bonnot)',url:'https://www.dropbox.com/scl/fi/8knhgtaqqrau8yp53onlq/Historique-du-TDAH-Bonnot-2026-2027.pptx?rlkey=sjeib8fxalbmxs698qiw7cttm&dl=0'}],
+  'S1C8':[{type:'video',label:'Vidéo cours — Examen psychologique enfant (Rouselle)',url:'https://www.dropbox.com/scl/fi/9wu1284fnh1fpms1fjqto/Manon-Rouselle-Examen-Psychologique-Enfant.mov?rlkey=7u6m15zeg74c82dxwmnr18z4j&dl=0'}],
+  'S2C2':[{type:'video',label:'Vidéo cours — Cas cliniques & échelles (Moscoso)',url:'https://www.dropbox.com/scl/fi/ho57irsx3x5spqtwwtmun/Cas-Cliniques-et-Echelles-Ana-Moscoso.mov?rlkey=0hexbhn9n0osj6snkqrdb4z28&dl=0'}],
+  '_S1_general':[{type:'pptx',label:'TDAH enfant-adulte — DIU TND Adulte (Bonnot)',url:'https://www.dropbox.com/scl/fi/898ssybkd1fwyxxzzf35h/TDAH_enfant_adulte_DIU_TND_Adulte_Bonnot_2026-2027.pptx?rlkey=u4uei7w9t20vi8rn7i9won0go&dl=0'}]
+};
+
+/* ===== DEFAULT SUMMARIES ===== */
+const DEFAULT_SUMMARIES = {};
+SESSIONS.forEach(s=>s.courses.forEach(c=>{
+  DEFAULT_SUMMARIES[c.id] = `Résumé du cours "${c.title}" dispensé par ${c.teacher}. Ce cours aborde les aspects fondamentaux du sujet dans le cadre du DIU TDAH. Les principaux points couverts incluent les définitions, les données épidémiologiques actuelles, les recommandations de bonnes pratiques et les applications cliniques concrètes. [Résumé IA à générer après collecte des évaluations]`;
+}));
+
+/* ===== UTILITIES ===== */
+const genId = () => Math.random().toString(36).slice(2,9)+Date.now().toString(36);
+const getLocalUser = () => { try{ const d=localStorage.getItem("du_u"); return d?JSON.parse(d):null; }catch{ return null; }};
+const saveLocalUser = u => localStorage.setItem("du_u", JSON.stringify(u));
+const hasSubmitted = (promo) => localStorage.getItem("du_ok_"+promo)==="1";
+const markSubmitted = (promo) => localStorage.setItem("du_ok_"+promo,"1");
+const sessionColor = (num) => SESSION_COLORS[num]||'s1';
+
+const sendEmailNotif = async (toEmail, toName, fromName, preview) => {
+  if(!EMAILJS_CONFIG.serviceId||EMAILJS_CONFIG.serviceId.startsWith("REMPLACER")||!toEmail) return;
+  try {
+    await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+      to_email: toEmail, to_name: toName, from_name: fromName,
+      message_preview: (preview||"").substring(0,120)
+    });
+  } catch(e) { console.warn("EmailJS:", e); }
+};
+
+/* ===== STARS COMPONENT ===== */
+function Stars({value, onChange, readOnly}){
+  const [hover, setHover] = React.useState(0);
+  return (
+    <div className="stars-row">
+      {[1,2,3,4,5].map(n=>(
+        <span key={n} className="star"
+          style={{color:(hover||value||0)>=n?'#F59E0B':'#D1D5DB'}}
+          onClick={()=>!readOnly&&onChange&&onChange(n)}
+          onMouseEnter={()=>!readOnly&&setHover(n)}
+          onMouseLeave={()=>!readOnly&&setHover(0)}>
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ===== RESOURCE ITEM COMPONENT ===== */
+function ResourceItem({res}){
+  const icons = {pptx:'📊',video:'🎬',audio:'🎙️',pdf:'📄',doc:'📝'};
+  const iconClass = {pptx:'icon-doc',video:'icon-video',audio:'icon-audio',pdf:'icon-pdf',doc:'icon-doc'};
+  const type = res.type||'doc';
+  return (
+    <a href={res.url} target="_blank" rel="noopener noreferrer" className="resource-item">
+      <div className={`resource-icon ${iconClass[type]||'icon-doc'}`}>{icons[type]||'📎'}</div>
+      <div style={{flex:1}}>
+        <div style={{fontSize:'.88rem',fontWeight:600}}>{res.label}</div>
+        <div style={{fontSize:'.72rem',color:'var(--gray-500)',marginTop:'.1rem',textTransform:'uppercase',letterSpacing:'.04em'}}>{type}</div>
+      </div>
+      <span style={{color:'var(--primary)',fontSize:'.85rem'}}>↗</span>
+    </a>
+  );
+}
+
+/* ===== REGISTER COMPONENT ===== */
+function Register({onDone}){
+  const [form, setForm] = React.useState({prenom:'',nom:'',email:'',profession:'',lieu:'',promo:'2025-2026',inDir:true});
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr] = React.useState('');
+  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const submit = async() => {
+    if(!form.prenom||!form.nom||!form.email||!form.profession){setErr("Merci de remplir tous les champs obligatoires.");return;}
+    if(!/\S+@\S+\.\S+/.test(form.email)){setErr("Email invalide.");return;}
+    setSaving(true); setErr('');
+    try{
+      const user = {id:genId(),prenom:form.prenom.trim(),nom:form.nom.trim(),
+        email:form.email.trim().toLowerCase(),profession:form.profession.trim(),
+        lieu:form.lieu.trim(),inDirectory:form.inDir,promo:form.promo,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+      await db.collection("participants").doc(user.id).set(user);
+      saveLocalUser(user);
+      onDone(user);
+    }catch(e){setErr("Erreur: "+e.message);}
+    setSaving(false);
+  };
+  return (
+    <div style={{maxWidth:500,margin:'0 auto'}}>
+      <div className="welcome-hero">
+        <div className="promo-select-pill">Inscription</div>
+        <h2>DIU TDAH</h2>
+        <p>Questionnaire de satisfaction &amp; Ressources pédagogiques</p>
+      </div>
+      <div className="card">
+        <div className="card-header">
+          <h3 style={{fontSize:'1.05rem',fontWeight:700}}>Créer votre profil</h3>
+          <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:.25+'rem'}}>Une seule inscription par promotion</p>
+        </div>
+        <div className="card-body">
+          {err&&<div className="alert alert-error"><span>⚠️</span>{err}</div>}
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Prénom *</label>
+              <input value={form.prenom} onChange={e=>upd('prenom',e.target.value)} placeholder="Marie"/>
+            </div>
+            <div className="form-group">
+              <label>Nom *</label>
+              <input value={form.nom} onChange={e=>upd('nom',e.target.value)} placeholder="Martin"/>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Email *</label>
+            <input type="email" value={form.email} onChange={e=>upd('email',e.target.value)} placeholder="marie.martin@hopital.fr"/>
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Profession *</label>
+              <select value={form.profession} onChange={e=>upd('profession',e.target.value)}>
+                <option value="">Sélectionner...</option>
+                <option>Pédopsychiatre</option>
+                <option>Psychiatre</option>
+                <option>Pédiatre</option>
+                <option>Neurologue</option>
+                <option>Médecin généraliste</option>
+                <option>Neuropédiatre</option>
+                <option>Psychologue</option>
+                <option>Orthophoniste</option>
+                <option>Neuropsychologue</option>
+                <option>Infirmier(ère)</option>
+                <option>Autre professionnel de santé</option>
+                <option>Chercheur</option>
+                <option>Étudiant</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Lieu d'exercice</label>
+              <input value={form.lieu} onChange={e=>upd('lieu',e.target.value)} placeholder="Paris, CHU de..."/>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Promotion *</label>
+            <select value={form.promo} onChange={e=>upd('promo',e.target.value)}
+              style={{fontWeight:700,background:'linear-gradient(135deg,var(--s1l),#fff)',borderColor:'var(--s1)'}}>
+              <option value="2025-2026">🎓 Promo 2025-2026 (étudiants inscrits)</option>
+              <option value="2026-2027">🆕 Promo 2026-2027 (nouvelles inscriptions)</option>
+            </select>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:'.6rem',marginBottom:'1rem'}}>
+            <input type="checkbox" id="inDir" checked={form.inDir} onChange={e=>upd('inDir',e.target.checked)}
+              style={{width:'auto',accentColor:'var(--primary)'}}/>
+            <label htmlFor="inDir" style={{fontSize:'.85rem',color:'var(--gray-700)',cursor:'pointer',fontWeight:'normal',marginBottom:0}}>
+              Figurer dans l'annuaire des participants (visible par les autres étudiants)
+            </label>
+          </div>
+          <button className="btn btn-primary" onClick={submit} disabled={saving} style={{width:'100%',justifyContent:'center'}}>
+            {saving?<><span className="spinner"></span> Inscription...</>:<>✓ S'inscrire — Promo {form.promo}</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== ACCOUNT RECOVERY COMPONENT ===== */
+function AccountRecovery({onBack, onRecover}){
+  const [email, setEmail] = React.useState('');
+  const [status, setStatus] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const recover = async () => {
+    if(!email||!/\S+@\S+\.\S+/.test(email)){setStatus({type:'error',msg:'Email invalide.'});return;}
+    setLoading(true); setStatus(null);
+    try{
+      const snap = await db.collection("participants").where("email","==",email.trim().toLowerCase()).limit(1).get();
+      if(snap.empty){setStatus({type:'error',msg:"Aucun compte trouvé pour cet email. Vérifiez l'adresse ou créez un nouveau profil."});}
+      else{
+        const user = {id:snap.docs[0].id,...snap.docs[0].data()};
+        saveLocalUser(user);
+        setStatus({type:'success',msg:`Compte retrouvé ! Bienvenue, ${user.prenom} ${user.nom} (Promo ${user.promo}).`});
+        setTimeout(()=>onRecover(user),1500);
+      }
+    }catch(e){setStatus({type:'error',msg:"Erreur : "+e.message});}
+    setLoading(false);
+  };
+  return (
+    <div style={{maxWidth:480,margin:'0 auto'}}>
+      <div className="card">
+        <div className="card-header" style={{background:'linear-gradient(135deg,#EFF6FF,#fff)',borderTop:'3px solid var(--s1)'}}>
+          <h3 style={{fontSize:'1.05rem',fontWeight:700}}>🔑 Retrouver mon compte</h3>
+          <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:'.25rem'}}>Saisissez votre email d'inscription pour restaurer votre profil</p>
+        </div>
+        <div className="card-body">
+          {status&&<div className={`alert alert-${status.type==='success'?'success':'error'}`}><span>{status.type==='success'?'✅':'⚠️'}</span>{status.msg}</div>}
+          <div className="form-group">
+            <label>Adresse email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+              placeholder="votre.email@exemple.fr" onKeyDown={e=>e.key==='Enter'&&recover()}/>
+          </div>
+          <div style={{display:'flex',gap:'.75rem'}}>
+            <button className="btn btn-secondary" onClick={onBack} style={{flex:1,justifyContent:'center'}}>← Retour</button>
+            <button className="btn btn-primary" onClick={recover} disabled={loading} style={{flex:2,justifyContent:'center'}}>
+              {loading?<><span className="spinner"></span> Recherche...</>:'🔍 Retrouver mon compte'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== WELCOME SCREEN ===== */
+function Welcome({onRegister, onLogin}){
+  const [showRecovery, setShowRecovery] = React.useState(false);
+  if(showRecovery) return <AccountRecovery onBack={()=>setShowRecovery(false)} onRecover={onLogin}/>;
+  return (
+    <div style={{maxWidth:600,margin:'0 auto'}}>
+      <div className="welcome-hero">
+        <div style={{fontSize:'3rem',marginBottom:'.5rem'}}>🧠</div>
+        <h2>DIU TDAH</h2>
+        <p>Université Paris-Saclay — Plateforme pédagogique &amp; questionnaire de satisfaction</p>
+        <div style={{display:'flex',gap:.75+'rem',justifyContent:'center',flexWrap:'wrap'}}>
+          <button className="btn" onClick={onRegister}
+            style={{background:'#fff',color:'var(--primary)',fontWeight:700,boxShadow:'0 4px 15px rgba(0,0,0,.2)'}}>
+            ✏️ Créer mon profil
+          </button>
+          <button className="btn" onClick={()=>setShowRecovery(true)}
+            style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'1.5px solid rgba(255,255,255,.4)'}}>
+            🔑 Retrouver mon compte
+          </button>
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-body" style={{textAlign:'center',padding:'2rem'}}>
+          <p style={{color:'var(--gray-500)',fontSize:'.9rem',lineHeight:1.6}}>
+            Cette plateforme est réservée aux participants du DIU TDAH.<br/>
+            Créez votre profil pour accéder au questionnaire de satisfaction et aux ressources pédagogiques.
+          </p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginTop:'1.5rem'}}>
+            {[['48','cours'],['6','sessions'],['2','promotions']].map(([v,l])=>(
+              <div key={l} className="stat-card"><div className="value">{v}</div><div className="label">{l}</div></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== QUESTIONNAIRE COMPONENT ===== */
+function Questionnaire({user}){
+  const alreadyDone = hasSubmitted(user.promo);
+  const [submitted, setSubmitted] = React.useState(alreadyDone);
+  const [general, setGeneral] = React.useState({org:0,support:0,inter:0,global:0});
+  const [courses, setCourses] = React.useState({});
+  const [texts, setTexts] = React.useState({points_forts:'',points_amelio:'',suggestions:''});
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr] = React.useState('');
+  const [openSess, setOpenSess] = React.useState(null);
+
+  const setGenStar = (k,v) => setGeneral(g=>({...g,[k]:v}));
+  const setCourseField = (cid,field,val) => setCourses(c=>({...c,[cid]:{...c[cid],[field]:val}}));
+
+  const totalFilled = Object.values(courses).filter(c=>c.stars>0).length;
+  const totalCourses = SESSIONS.reduce((a,s)=>a+s.courses.length,0);
+
+  const submit = async() => {
+    if(!general.global){setErr("Merci de donner au moins une note globale.");return;}
+    setSaving(true); setErr('');
+    try{
+      const data = {
+        userId:user.id, promo:user.promo,
+        general, courses, texts,
+        submittedAt:firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await db.collection("responses").add(data);
+      markSubmitted(user.promo);
+      setSubmitted(true);
+    }catch(e){setErr("Erreur: "+e.message);}
+    setSaving(false);
+  };
+
+  if(submitted) return (
+    <div className="card" style={{textAlign:'center',padding:'3rem 2rem'}}>
+      <div style={{fontSize:'4rem',marginBottom:'1rem'}}>🎉</div>
+      <h2 style={{fontSize:'1.5rem',fontWeight:800,marginBottom:.75+'rem'}}>Merci pour votre évaluation !</h2>
+      <p style={{color:'var(--gray-500)'}}>Vos réponses ont été enregistrées pour la promotion {user.promo}.</p>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="alert alert-info">
+        <span>ℹ️</span>
+        <span>Promotion <strong>{user.promo}</strong> — {totalFilled}/{totalCourses} cours évalués. La note globale est obligatoire.</span>
+      </div>
+
+      {/* Notes générales */}
+      <div className="card">
+        <div className="card-header" style={{background:'linear-gradient(135deg,#F5F3FF,#fff)',borderTop:'3px solid var(--primary)'}}>
+          <h3 style={{fontWeight:700}}>⭐ Évaluation générale</h3>
+        </div>
+        <div className="card-body">
+          {[
+            {k:'org',label:'Organisation de la formation'},
+            {k:'support',label:'Qualité des supports pédagogiques'},
+            {k:'inter',label:'Interactivité et échanges'},
+            {k:'global',label:'Satisfaction globale *'}
+          ].map(({k,label})=>(
+            <div key={k} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.85rem',flexWrap:'wrap',gap:'.5rem'}}>
+              <span style={{fontSize:'.9rem',fontWeight:k==='global'?700:500}}>{label}</span>
+              <Stars value={general[k]} onChange={v=>setGenStar(k,v)}/>
+            </div>
+          ))}
+          <hr className="divider"/>
+          {[
+            {k:'points_forts',label:'Points forts de la formation',ph:'Ce qui vous a le plus apporté...'},
+            {k:'points_amelio',label:"Points à améliorer",ph:'Suggestions concrètes...'},
+            {k:'suggestions',label:'Suggestions libres',ph:'Vos idées pour la prochaine promotion...'}
+          ].map(({k,label,ph})=>(
+            <div key={k} className="form-group">
+              <label>{label}</label>
+              <textarea rows={3} value={texts[k]} onChange={e=>setTexts(t=>({...t,[k]:e.target.value}))} placeholder={ph}/>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Cours par session */}
+      {SESSIONS.map(sess=>{
+        const col = sessionColor(sess.num);
+        const isOpen = openSess===sess.id;
+        const sessRated = sess.courses.filter(c=>courses[c.id]?.stars>0).length;
+        return (
+          <div key={sess.id} className={`card ${col}-card`}>
+            <div className="card-header" style={{cursor:'pointer'}} onClick={()=>setOpenSess(isOpen?null:sess.id)}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
+                  <span className={`session-badge ${col}-badge`}>{sess.id}</span>
+                  <span style={{fontWeight:700,fontSize:'.95rem'}}>{SESSION_NAMES[sess.num]}</span>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
+                  <span style={{fontSize:'.78rem',color:'var(--gray-500)'}}>{sessRated}/{sess.courses.length} évalués</span>
+                  <span style={{fontSize:'1.2rem'}}>{isOpen?'▲':'▼'}</span>
+                </div>
+              </div>
+              {sessRated>0&&<div className="progress-bar" style={{marginTop:'.75rem'}}>
+                <div className="progress-fill" style={{width:`${(sessRated/sess.courses.length)*100}%`}}/>
+              </div>}
+            </div>
+            {isOpen&&<div className="card-body">
+              {sess.courses.map(c=>{
+                const cv = courses[c.id]||{stars:0,comment:''};
+                const hasRes = DROPBOX_RESOURCES[c.id]&&DROPBOX_RESOURCES[c.id].length>0;
+                return (
+                  <div key={c.id} style={{marginBottom:'1.25rem',paddingBottom:'1.25rem',borderBottom:'1px solid var(--gray-100)'}}>
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'1rem',flexWrap:'wrap'}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600,fontSize:'.9rem'}}>{c.title}</div>
+                        <div style={{fontSize:'.78rem',color:'var(--gray-500)',marginTop:'.15rem'}}>{c.teacher}</div>
+                        {hasRes&&DROPBOX_RESOURCES[c.id].map((r,i)=>(
+                          <ResourceItem key={i} res={r}/>
+                        ))}
+                      </div>
+                      <div style={{textAlign:'right',flexShrink:0}}>
+                        <Stars value={cv.stars} onChange={v=>setCourseField(c.id,'stars',v)}/>
+                      </div>
+                    </div>
+                    <textarea rows={2} style={{width:'100%',marginTop:'.5rem',padding:'.5rem .75rem',border:'1.5px solid var(--gray-200)',borderRadius:'.5rem',fontSize:'.82rem',fontFamily:'inherit',resize:'vertical'}}
+                      value={cv.comment||''} onChange={e=>setCourseField(c.id,'comment',e.target.value)}
+                      placeholder="Commentaire optionnel sur ce cours..."/>
+                  </div>
+                );
+              })}
+            </div>}
+          </div>
+        );
+      })}
+
+      {err&&<div className="alert alert-error"><span>⚠️</span>{err}</div>}
+      <button className="btn btn-primary" onClick={submit} disabled={saving}
+        style={{width:'100%',justifyContent:'center',padding:'1rem',fontSize:'1rem',marginBottom:'2rem'}}>
+        {saving?<><span className="spinner"></span> Envoi...</>:`✓ Soumettre mon évaluation (Promo ${user.promo})`}
+      </button>
+    </div>
+  );
+}
+
+/* ===== ANNUAIRE COMPONENT ===== */
+function Annuaire({user}){
+  const [list, setList] = React.useState([]);
+  const [filter, setFilter] = React.useState({promo:'',search:''});
+  const [loading, setLoading] = React.useState(true);
+  const [msgModal, setMsgModal] = React.useState(null);
+  const [msgText, setMsgText] = React.useState('');
+  const [sending, setSending] = React.useState(false);
+
+  React.useEffect(()=>{
+    db.collection("participants").where("inDirectory","==",true).orderBy("nom").onSnapshot(snap=>{
+      setList(snap.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+  },[]);
+
+  const sendMsg = async(to) => {
+    if(!msgText.trim()) return;
+    setSending(true);
+    try{
+      await db.collection("messages").add({
+        fromId:user.id, fromName:`${user.prenom} ${user.nom}`,
+        toId:to.id, toName:`${to.prenom} ${to.nom}`,
+        text:msgText.trim(),
+        read:false,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      await sendEmailNotif(to.email,`${to.prenom} ${to.nom}`,`${user.prenom} ${user.nom}`,msgText.trim());
+      setMsgModal(null); setMsgText('');
+    }catch(e){console.error(e);}
+    setSending(false);
+  };
+
+  const filtered = list.filter(p=>{
+    if(p.id===user.id) return false;
+    if(filter.promo && p.promo!==filter.promo) return false;
+    if(filter.search){
+      const q=filter.search.toLowerCase();
+      return `${p.prenom} ${p.nom} ${p.profession} ${p.lieu}`.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  return (
+    <div>
+      <div className="card">
+        <div className="card-body" style={{display:'flex',gap:'.75rem',flexWrap:'wrap'}}>
+          <input style={{flex:2,padding:'.6rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.9rem'}}
+            placeholder="🔍 Rechercher (nom, profession, ville...)" value={filter.search}
+            onChange={e=>setFilter(f=>({...f,search:e.target.value}))}/>
+          <select style={{flex:1,padding:'.6rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.9rem'}}
+            value={filter.promo} onChange={e=>setFilter(f=>({...f,promo:e.target.value}))}>
+            <option value="">Toutes promotions</option>
+            {PROMOS.map(p=><option key={p} value={p}>Promo {p}</option>)}
+          </select>
+        </div>
+      </div>
+      {loading?<div style={{textAlign:'center',padding:'2rem',color:'var(--gray-500)'}}>Chargement...</div>:
+      filtered.length===0?<div className="card"><div className="card-body" style={{textAlign:'center',color:'var(--gray-500)'}}>Aucun participant trouvé.</div></div>:
+      filtered.map(p=>(
+        <div key={p.id} className="participant-card">
+          <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
+            <div style={{width:'2.5rem',height:'2.5rem',borderRadius:'50%',background:'linear-gradient(135deg,var(--primary),#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:'1rem',flexShrink:0}}>
+              {(p.prenom[0]||'?').toUpperCase()}{(p.nom[0]||'').toUpperCase()}
+            </div>
+            <div>
+              <div style={{fontWeight:700}}>{p.prenom} {p.nom}</div>
+              <div style={{fontSize:'.8rem',color:'var(--gray-500)'}}>{p.profession}{p.lieu?` — ${p.lieu}`:''}</div>
+              <span className="chip" style={{marginTop:'.25rem'}}>Promo {p.promo}</span>
+            </div>
+          </div>
+          <button className="btn btn-sm btn-primary" onClick={()=>setMsgModal(p)}>✉️ Message</button>
+        </div>
+      ))}
+      {msgModal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:'1rem'}}>
+          <div className="card" style={{width:'100%',maxWidth:460,margin:0}}>
+            <div className="card-header">
+              <h3 style={{fontWeight:700}}>Message à {msgModal.prenom} {msgModal.nom}</h3>
+            </div>
+            <div className="card-body">
+              <textarea rows={4} style={{width:'100%',padding:'.75rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.9rem',fontFamily:'inherit'}}
+                value={msgText} onChange={e=>setMsgText(e.target.value)} placeholder="Votre message..."/>
+              <p style={{fontSize:'.75rem',color:'var(--gray-500)',marginTop:'.5rem'}}>
+                💡 Un email de notification sera envoyé à {msgModal.prenom}.
+              </p>
+              <div style={{display:'flex',gap:'.75rem',marginTop:'.75rem'}}>
+                <button className="btn btn-secondary" onClick={()=>{setMsgModal(null);setMsgText('')}} style={{flex:1,justifyContent:'center'}}>Annuler</button>
+                <button className="btn btn-primary" onClick={()=>sendMsg(msgModal)} disabled={sending||!msgText.trim()} style={{flex:2,justifyContent:'center'}}>
+                  {sending?<><span className="spinner"></span> Envoi...</>:'✈️ Envoyer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== MESSAGING COMPONENT ===== */
+function Messaging({user}){
+  const [threads, setThreads] = React.useState([]);
+  const [active, setActive] = React.useState(null);
+  const [msgs, setMsgs] = React.useState([]);
+  const [reply, setReply] = React.useState('');
+  const [sending, setSending] = React.useState(false);
+
+  React.useEffect(()=>{
+    const q = db.collection("messages").where("toId","==",user.id).orderBy("createdAt","desc");
+    return q.onSnapshot(snap=>{
+      const byFrom={};
+      snap.docs.forEach(d=>{
+        const m={id:d.id,...d.data()};
+        if(!byFrom[m.fromId]||m.createdAt>byFrom[m.fromId].createdAt) byFrom[m.fromId]=m;
+      });
+      setThreads(Object.values(byFrom).sort((a,b)=>b.createdAt?.seconds-a.createdAt?.seconds));
+    });
+  },[user.id]);
+
+  React.useEffect(()=>{
+    if(!active) return;
+    const q = db.collection("messages").where("toId","==",user.id).where("fromId","==",active.fromId).orderBy("createdAt");
+    const q2 = db.collection("messages").where("fromId","==",user.id).where("toId","==",active.fromId).orderBy("createdAt");
+    const combined = [];
+    let u1=[], u2=[];
+    const merge = () => {
+      const all = [...u1,...u2].sort((a,b)=>a.createdAt?.seconds-b.createdAt?.seconds);
+      setMsgs(all);
+    };
+    const unsub1 = q.onSnapshot(s=>{u1=s.docs.map(d=>({id:d.id,...d.data()}));merge();});
+    const unsub2 = q2.onSnapshot(s=>{u2=s.docs.map(d=>({id:d.id,...d.data()}));merge();});
+    return()=>{unsub1();unsub2();};
+  },[active]);
+
+  const sendReply = async() => {
+    if(!reply.trim()||!active) return;
+    setSending(true);
+    try{
+      await db.collection("messages").add({
+        fromId:user.id,fromName:`${user.prenom} ${user.nom}`,
+        toId:active.fromId,toName:active.fromName,
+        text:reply.trim(),read:false,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      await sendEmailNotif(active.fromEmail,active.fromName,`${user.prenom} ${user.nom}`,reply.trim());
+      setReply('');
+    }catch(e){console.error(e);}
+    setSending(false);
+  };
+
+  if(active){
+    return (
+      <div>
+        <button className="btn btn-secondary btn-sm" onClick={()=>setActive(null)} style={{marginBottom:'1rem'}}>← Retour aux conversations</button>
+        <div className="card" style={{marginBottom:'.75rem'}}>
+          <div className="card-header"><h3 style={{fontWeight:700}}>Conversation avec {active.fromName}</h3></div>
+          <div className="card-body" style={{maxHeight:'50vh',overflowY:'auto'}}>
+            {msgs.map(m=>(
+              <div key={m.id} className={`msg-bubble ${m.fromId===user.id?'sent':'received'}`}>
+                <div style={{fontSize:'.88rem'}}>{m.text}</div>
+                <div style={{fontSize:'.7rem',opacity:.7,marginTop:'.3rem'}}>{m.createdAt?.toDate?.()?.toLocaleString('fr-FR')}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-body">
+            <textarea rows={3} style={{width:'100%',padding:'.65rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.9rem',fontFamily:'inherit'}}
+              value={reply} onChange={e=>setReply(e.target.value)} placeholder="Votre réponse..."/>
+            <button className="btn btn-primary" onClick={sendReply} disabled={sending||!reply.trim()} style={{marginTop:'.5rem',width:'100%',justifyContent:'center'}}>
+              {sending?<><span className="spinner"></span> Envoi...</>:'✈️ Envoyer la réponse'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {threads.length===0?
+        <div className="card"><div className="card-body" style={{textAlign:'center',color:'var(--gray-500)',padding:'2.5rem'}}>
+          <div style={{fontSize:'2.5rem',marginBottom:'.75rem'}}>📭</div>
+          <p>Aucun message reçu. Utilisez l'annuaire pour contacter des participants.</p>
+        </div></div>:
+        threads.map(t=>(
+          <div key={t.fromId} className="participant-card" style={{cursor:'pointer'}} onClick={()=>setActive(t)}>
+            <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
+              <div style={{width:'2.5rem',height:'2.5rem',borderRadius:'50%',background:'linear-gradient(135deg,var(--primary),#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700}}>
+                {(t.fromName||'?')[0].toUpperCase()}
+              </div>
+              <div>
+                <div style={{fontWeight:700}}>{t.fromName}</div>
+                <div style={{fontSize:'.82rem',color:'var(--gray-500)'}}>{(t.text||'').substring(0,60)}...</div>
+              </div>
+            </div>
+            {!t.read&&<span className="chip" style={{background:'#EFF6FF',color:'var(--primary)'}}>Nouveau</span>}
+          </div>
+        ))
+      }
+    </div>
+  );
+}
+
+/* ===== RESSOURCES BONUS COMPONENT ===== */
+function BonusResources({user}){
+  const [tab, setTab] = React.useState('podcasts');
+  const [items, setItems] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [form, setForm] = React.useState({label:'',url:'',type:'audio',category:'podcasts'});
+  const [adding, setAdding] = React.useState(false);
+  const [showForm, setShowForm] = React.useState(false);
+  const isAdmin = user?.isAdmin;
+
+  React.useEffect(()=>{
+    return db.collection("bonus").where("category","==",tab).orderBy("createdAt").onSnapshot(snap=>{
+      setItems(snap.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+  },[tab]);
+
+  const addItem = async() => {
+    if(!form.label||!form.url){return;}
+    setAdding(true);
+    try{
+      await db.collection("bonus").add({...form,category:tab,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      setForm(f=>({...f,label:'',url:''}));
+      setShowForm(false);
+    }catch(e){console.error(e);}
+    setAdding(false);
+  };
+
+  const delItem = async(id) => {
+    if(!confirm("Supprimer cette ressource ?")) return;
+    await db.collection("bonus").doc(id).delete();
+  };
+
+  return (
+    <div>
+      <div className="card" style={{background:'linear-gradient(135deg,#FFF7ED,#FEF3C7)',borderTop:'3px solid var(--s4)',overflow:'visible'}}>
+        <div className="card-body">
+          <div className="section-title" style={{fontSize:'1.15rem'}}>🎁 Ressources Bonus</div>
+          <p style={{color:'var(--gray-600)',fontSize:'.88rem'}}>
+            Podcasts et fiches pratiques complémentaires disponibles depuis Dropbox. 
+            Ces ressources enrichissent le programme du DIU TDAH.
+          </p>
+        </div>
+      </div>
+
+      <div className="tab-pills">
+        {[['podcasts','🎙️ Podcasts'],['fiches','📄 Fiches pratiques']].map(([k,l])=>(
+          <button key={k} className={`tab-pill ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
+        ))}
+      </div>
+
+      {isAdmin&&(
+        <div className="admin-section">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontWeight:600,fontSize:'.9rem'}}>⚙️ Admin — Gestion des ressources bonus</span>
+            <button className="btn btn-sm btn-primary" onClick={()=>setShowForm(!showForm)}>
+              {showForm?'✕ Fermer':'+ Ajouter'}
+            </button>
+          </div>
+          {showForm&&(
+            <div style={{marginTop:'1rem',display:'flex',flexDirection:'column',gap:'.6rem'}}>
+              <input style={{padding:'.6rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.875rem'}}
+                value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="Titre de la ressource"/>
+              <input style={{padding:'.6rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.875rem'}}
+                value={form.url} onChange={e=>setForm(f=>({...f,url:e.target.value}))} placeholder="URL Dropbox (public)"/>
+              <div style={{display:'flex',gap:'.5rem'}}>
+                <select style={{flex:1,padding:'.6rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.875rem'}}
+                  value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
+                  <option value="audio">🎙️ Audio (podcast)</option>
+                  <option value="pdf">📄 PDF (fiche)</option>
+                  <option value="video">🎬 Vidéo</option>
+                  <option value="doc">📝 Document</option>
+                </select>
+                <button className="btn btn-green" onClick={addItem} disabled={adding}>
+                  {adding?<span className="spinner"></span>:'✓ Ajouter'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {loading?<div style={{textAlign:'center',padding:'2rem',color:'var(--gray-500)'}}>Chargement...</div>:
+      items.length===0?
+        <div className="card"><div className="card-body" style={{textAlign:'center',padding:'2.5rem'}}>
+          <div style={{fontSize:'2.5rem',marginBottom:'.75rem'}}>{tab==='podcasts'?'🎙️':'📄'}</div>
+          <p style={{color:'var(--gray-500)'}}>
+            {tab==='podcasts'?'Les podcasts seront disponibles prochainement.':'Les fiches pratiques seront disponibles prochainement.'}
+          </p>
+          {isAdmin&&<p style={{color:'var(--gray-400)',fontSize:'.82rem',marginTop:'.5rem'}}>
+            Créez le dossier "bonus/{tab}" dans Dropbox et ajoutez les ressources via le formulaire ci-dessus.
+          </p>}
+        </div></div>:
+        <div className="card"><div className="card-body">
+          {items.map(item=>(
+            <div key={item.id} style={{display:'flex',alignItems:'center',gap:'.5rem'}}>
+              <div style={{flex:1}}><ResourceItem res={item}/></div>
+              {isAdmin&&<button className="btn btn-sm btn-danger" onClick={()=>delItem(item.id)} style={{flexShrink:0}}>✕</button>}
+            </div>
+          ))}
+        </div></div>
+      }
+    </div>
+  );
+}
+
+/* ===== RESOURCES (SESSION RESOURCES) COMPONENT ===== */
+function Resources({user}){
+  const [openSess, setOpenSess] = React.useState(1);
+  const [firestoreRes, setFirestoreRes] = React.useState({});
+
+  React.useEffect(()=>{
+    return db.collection("resources").onSnapshot(snap=>{
+      const m={};
+      snap.docs.forEach(d=>{const r={id:d.id,...d.data()};if(!m[r.courseId])m[r.courseId]=[];m[r.courseId].push(r);});
+      setFirestoreRes(m);
+    });
+  },[]);
+
+  return (
+    <div>
+      <div className="alert alert-warning">
+        <span>⚠️</span>
+        <span>Les ressources Dropbox nécessitent que le lien soit configuré en <strong>"Toute personne disposant du lien"</strong> dans vos paramètres Dropbox.</span>
+      </div>
+      {/* S1 general resource */}
+      {DROPBOX_RESOURCES['_S1_general']&&(
+        <div className="card" style={{borderTop:'3px solid var(--primary)'}}>
+          <div className="card-header" style={{background:'linear-gradient(135deg,#F5F3FF,#fff)'}}>
+            <h3 style={{fontWeight:700}}>📚 Ressources générales</h3>
+          </div>
+          <div className="card-body">
+            {DROPBOX_RESOURCES['_S1_general'].map((r,i)=><ResourceItem key={i} res={r}/>)}
+          </div>
+        </div>
+      )}
+      {SESSIONS.map(sess=>{
+        const col = sessionColor(sess.num);
+        const isOpen = openSess===sess.num;
+        const hasAnyRes = sess.courses.some(c=>(DROPBOX_RESOURCES[c.id]?.length||0)+(firestoreRes[c.id]?.length||0)>0);
+        return (
+          <div key={sess.id} className={`card ${col}-card`}>
+            <div className="card-header" style={{cursor:'pointer'}} onClick={()=>setOpenSess(isOpen?null:sess.num)}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
+                  <span className={`session-badge ${col}-badge`}>{sess.id}</span>
+                  <span style={{fontWeight:700,fontSize:'.95rem'}}>{SESSION_NAMES[sess.num]}</span>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:'.5rem'}}>
+                  {hasAnyRes&&<span className="chip" style={{background:'#DCFCE7',color:'#15803D'}}>Ressources ✓</span>}
+                  <span style={{fontSize:'1.2rem'}}>{isOpen?'▲':'▼'}</span>
+                </div>
+              </div>
+            </div>
+            {isOpen&&<div className="card-body">
+              {sess.courses.map(c=>{
+                const dbxRes = DROPBOX_RESOURCES[c.id]||[];
+                const fsRes = firestoreRes[c.id]||[];
+                const allRes = [...dbxRes,...fsRes];
+                return (
+                  <div key={c.id} style={{marginBottom:'1rem',paddingBottom:'1rem',borderBottom:'1px solid var(--gray-100)'}}>
+                    <div style={{fontWeight:600,fontSize:'.9rem',marginBottom:'.35rem'}}>{c.title}</div>
+                    <div style={{fontSize:'.78rem',color:'var(--gray-500)',marginBottom:'.5rem'}}>{c.teacher}</div>
+                    {allRes.length===0?
+                      <div style={{fontSize:'.78rem',color:'var(--gray-400)',fontStyle:'italic'}}>Pas encore de ressources pour ce cours.</div>:
+                      allRes.map((r,i)=><ResourceItem key={i} res={r}/>)
+                    }
+                  </div>
+                );
+              })}
+            </div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ===== ADMIN DASHBOARD COMPONENT ===== */
+function AdminDash(){
+  const [tab, setTab] = React.useState('overview');
+  const [participants, setParticipants] = React.useState([]);
+  const [responses, setResponses] = React.useState([]);
+  const [summaries, setSummaries] = React.useState({...DEFAULT_SUMMARIES});
+  const [editSummary, setEditSummary] = React.useState(null);
+  const [summaryText, setSummaryText] = React.useState('');
+  const [broadcast, setBroadcast] = React.useState({subject:'',body:'',filterPromo:'',filterSession:''});
+  const [sending, setSending] = React.useState(false);
+  const [broadcastStatus, setBroadcastStatus] = React.useState(null);
+  const [resForm, setResForm] = React.useState({courseId:'',label:'',url:'',type:'pptx'});
+  const [addingRes, setAddingRes] = React.useState(false);
+  const chartRef = React.useRef(null);
+  const chartInst = React.useRef(null);
+
+  React.useEffect(()=>{
+    const u1=db.collection("participants").orderBy("createdAt","desc").onSnapshot(s=>setParticipants(s.docs.map(d=>({id:d.id,...d.data()}))));
+    const u2=db.collection("responses").orderBy("submittedAt","desc").onSnapshot(s=>setResponses(s.docs.map(d=>({id:d.id,...d.data()}))));
+    db.collection("summaries").get().then(s=>{
+      const m={...DEFAULT_SUMMARIES};
+      s.docs.forEach(d=>{m[d.id]=d.data().text||m[d.id];});
+      setSummaries(m);
+    });
+    return()=>{u1();u2();};
+  },[]);
+
+  React.useEffect(()=>{
+    if(tab!=='analytics'||!chartRef.current) return;
+    if(chartInst.current) chartInst.current.destroy();
+    const sessionAvgs = SESSIONS.map(sess=>{
+      const ids = sess.courses.map(c=>c.id);
+      let total=0,count=0;
+      responses.forEach(r=>{
+        ids.forEach(cid=>{
+          if(r.courses?.[cid]?.stars){total+=r.courses[cid].stars;count++;}
+        });
+      });
+      return count>0?(total/count).toFixed(2):0;
+    });
+    chartInst.current = new Chart(chartRef.current,{
+      type:'bar',
+      data:{
+        labels:SESSIONS.map(s=>s.id),
+        datasets:[{label:'Note moyenne/5',data:sessionAvgs,
+          backgroundColor:['#3B82F6','#0D9488','#8B5CF6','#F97316','#16A34A','#DB2777'],
+          borderRadius:8}]
+      },
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{min:0,max:5}}}
+    });
+  },[tab,responses]);
+
+  const sendBroadcast = async() => {
+    if(!broadcast.body.trim()) return;
+    setSending(true); setBroadcastStatus(null);
+    try{
+      let targets = [...participants];
+      if(broadcast.filterPromo) targets=targets.filter(p=>p.promo===broadcast.filterPromo);
+      if(!targets.length){setBroadcastStatus({type:'error',msg:'Aucun destinataire.'});setSending(false);return;}
+      let sent=0,failed=0;
+      for(const p of targets){
+        if(!p.email) continue;
+        try{
+          if(EMAILJS_CONFIG.serviceId&&!EMAILJS_CONFIG.serviceId.startsWith("REMPLACER")){
+            await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+              to_email:p.email, to_name:`${p.prenom} ${p.nom}`,
+              from_name:'Admin DIU TDAH',
+              message_preview:broadcast.body.substring(0,300),
+              app_link: typeof APP_URL!=='undefined'?APP_URL:'(voir URL de l\'application)'
+            });
+          }
+          await db.collection("messages").add({
+            fromId:'admin',fromName:'Admin DIU TDAH',
+            toId:p.id,toName:`${p.prenom} ${p.nom}`,
+            text:broadcast.body.trim(),read:false,
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+          sent++;
+        }catch(e){failed++;console.error(e);}
+      }
+      setBroadcastStatus({type:'success',msg:`Message envoyé à ${sent} participant(s).${failed?' '+failed+' échec(s).':''}`});
+      setBroadcast(b=>({...b,body:'',subject:''}));
+    }catch(e){setBroadcastStatus({type:'error',msg:e.message});}
+    setSending(false);
+  };
+
+  const saveSummary = async(cid) => {
+    await db.collection("summaries").doc(cid).set({text:summaryText,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    setSummaries(s=>({...s,[cid]:summaryText}));
+    setEditSummary(null);
+  };
+
+  const addResource = async() => {
+    if(!resForm.courseId||!resForm.label||!resForm.url) return;
+    setAddingRes(true);
+    await db.collection("resources").add({...resForm,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    setResForm(f=>({...f,label:'',url:''}));
+    setAddingRes(false);
+  };
+
+  const exportPDF = () => {
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(16);doc.text("Rapport DIU TDAH",14,18);
+    doc.setFontSize(10);doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`,14,28);
+    doc.autoTable({startY:35,head:[['Prénom','Nom','Email','Profession','Promo']],
+      body:participants.map(p=>[p.prenom,p.nom,p.email,p.profession,p.promo])});
+    doc.save('rapport-diu-tdah.pdf');
+  };
+
+  const promoStats = PROMOS.map(p=>({promo:p,count:participants.filter(x=>x.promo===p).length,responses:responses.filter(x=>x.promo===p).length}));
+  const globalAvg = responses.length?
+    (responses.reduce((a,r)=>a+(r.general?.global||0),0)/responses.filter(r=>r.general?.global).length).toFixed(2):
+    'N/A';
+
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:'.75rem',marginBottom:'1.25rem'}}>
+        {[
+          {value:participants.length,label:'Participants'},
+          {value:responses.length,label:'Évaluations'},
+          {value:globalAvg,label:'Moy. globale'},
+          {value:`${promoStats[0]?.count||0}/${promoStats[1]?.count||0}`,label:'Promos 25-26/26-27'}
+        ].map(s=>(
+          <div key={s.label} className="stat-card">
+            <div className="value">{s.value}</div><div className="label">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="tab-pills">
+        {[['overview','📊 Vue d\'ensemble'],['broadcast','📢 Diffusion'],['resources','📎 Ressources'],['summaries','🤖 Résumés IA'],['analytics','📈 Analytique']].map(([k,l])=>(
+          <button key={k} className={`tab-pill ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
+        ))}
+      </div>
+
+      {tab==='overview'&&(
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem',flexWrap:'wrap',gap:'.5rem'}}>
+            <h3 style={{fontWeight:700}}>Participants ({participants.length})</h3>
+            <button className="btn btn-secondary btn-sm" onClick={exportPDF}>⬇️ Export PDF</button>
+          </div>
+          {participants.map(p=>(
+            <div key={p.id} className="participant-card">
+              <div>
+                <div style={{fontWeight:700}}>{p.prenom} {p.nom}</div>
+                <div style={{fontSize:'.8rem',color:'var(--gray-500)'}}>{p.email} — {p.profession}</div>
+                <span className="chip" style={{marginTop:'.25rem'}}>Promo {p.promo}</span>
+                {responses.some(r=>r.userId===p.id)&&<span className="chip" style={{background:'#DCFCE7',color:'#166534',marginLeft:'.25rem'}}>✓ Évaluation soumise</span>}
+              </div>
+              <span style={{fontSize:'.78rem',color:'var(--gray-400)'}}>{p.inDirectory?'📒 Annuaire':'🔒 Privé'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab==='broadcast'&&(
+        <div>
+          <div className="card">
+            <div className="card-header" style={{background:'linear-gradient(135deg,#FFFBEB,#fff)',borderTop:'3px solid var(--s4)'}}>
+              <h3 style={{fontWeight:700}}>📢 Message groupé</h3>
+              <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:'.25rem'}}>
+                Envoyez un message à tous les participants ou filtrez par promotion.
+              </p>
+            </div>
+            <div className="card-body">
+              {broadcastStatus&&<div className={`alert alert-${broadcastStatus.type==='success'?'success':'error'}`}>
+                <span>{broadcastStatus.type==='success'?'✅':'⚠️'}</span>{broadcastStatus.msg}
+              </div>}
+              <div className="form-group">
+                <label>Filtrer par promotion (optionnel)</label>
+                <select value={broadcast.filterPromo} onChange={e=>setBroadcast(b=>({...b,filterPromo:e.target.value}))}>
+                  <option value="">Toutes les promotions ({participants.length} participants)</option>
+                  {PROMOS.map(p=><option key={p} value={p}>Promo {p} ({participants.filter(x=>x.promo===p).length} participants)</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Message *</label>
+                <textarea rows={5} value={broadcast.body} onChange={e=>setBroadcast(b=>({...b,body:e.target.value}))}
+                  placeholder="Votre message aux participants...&#10;&#10;Un lien vers l'application sera automatiquement inclus dans l'email."/>
+              </div>
+              <div className="alert alert-info" style={{fontSize:'.8rem'}}>
+                <span>💡</span>
+                <span>
+                  Destinataires : <strong>{broadcast.filterPromo?participants.filter(p=>p.promo===broadcast.filterPromo).length:participants.length} participant(s)</strong>. 
+                  Le message sera envoyé par email (via EmailJS) et stocké dans la messagerie de chaque participant.
+                </span>
+              </div>
+              <button className="btn btn-primary" onClick={sendBroadcast} disabled={sending||!broadcast.body.trim()}
+                style={{width:'100%',justifyContent:'center',padding:'.9rem'}}>
+                {sending?<><span className="spinner"></span> Envoi en cours...</>:'📢 Envoyer le message groupé'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab==='resources'&&(
+        <div>
+          <div className="card">
+            <div className="card-header"><h3 style={{fontWeight:700}}>Ajouter une ressource</h3></div>
+            <div className="card-body">
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Cours</label>
+                  <select value={resForm.courseId} onChange={e=>setResForm(f=>({...f,courseId:e.target.value}))}>
+                    <option value="">Sélectionner...</option>
+                    {SESSIONS.flatMap(s=>s.courses.map(c=><option key={c.id} value={c.id}>{c.id} — {c.title.substring(0,40)}</option>))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Type</label>
+                  <select value={resForm.type} onChange={e=>setResForm(f=>({...f,type:e.target.value}))}>
+                    {['pptx','pdf','video','audio','doc'].map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="form-group"><label>Titre</label>
+                <input value={resForm.label} onChange={e=>setResForm(f=>({...f,label:e.target.value}))} placeholder="Titre de la ressource"/>
+              </div>
+              <div className="form-group"><label>URL</label>
+                <input value={resForm.url} onChange={e=>setResForm(f=>({...f,url:e.target.value}))} placeholder="https://www.dropbox.com/..."/>
+              </div>
+              <button className="btn btn-green" onClick={addResource} disabled={addingRes}>
+                {addingRes?<span className="spinner"></span>:'+ Ajouter la ressource'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab==='summaries'&&(
+        <div>
+          {SESSIONS.flatMap(sess=>sess.courses.map(c=>(
+            <div key={c.id} className="card" style={{marginBottom:'.75rem'}}>
+              <div className="card-body">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'1rem',marginBottom:'.5rem'}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:'.9rem'}}>{c.id} — {c.title}</div>
+                    <div style={{fontSize:'.78rem',color:'var(--gray-500)'}}>{c.teacher}</div>
+                  </div>
+                  <button className="btn btn-sm btn-primary" onClick={()=>{setEditSummary(c.id);setSummaryText(summaries[c.id]||'')}}>
+                    ✏️ Éditer
+                  </button>
+                </div>
+                {editSummary===c.id?
+                  <div>
+                    <textarea rows={4} style={{width:'100%',padding:'.65rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.88rem',fontFamily:'inherit'}}
+                      value={summaryText} onChange={e=>setSummaryText(e.target.value)}/>
+                    <div style={{display:'flex',gap:'.5rem',marginTop:'.5rem'}}>
+                      <button className="btn btn-sm btn-green" onClick={()=>saveSummary(c.id)}>✓ Sauvegarder</button>
+                      <button className="btn btn-sm btn-secondary" onClick={()=>setEditSummary(null)}>Annuler</button>
+                    </div>
+                  </div>:
+                  <p style={{fontSize:'.82rem',color:'var(--gray-600)',lineHeight:1.55}}>{(summaries[c.id]||'').substring(0,200)}...</p>
+                }
+              </div>
+            </div>
+          )))}
+        </div>
+      )}
+
+      {tab==='analytics'&&(
+        <div>
+          <div className="card" style={{marginBottom:'1rem'}}>
+            <div className="card-header"><h3 style={{fontWeight:700}}>Notes moyennes par session</h3></div>
+            <div className="card-body"><canvas ref={chartRef} height={220}/></div>
+          </div>
+          <div className="card">
+            <div className="card-header"><h3 style={{fontWeight:700}}>Commentaires libres</h3></div>
+            <div className="card-body">
+              {responses.filter(r=>r.texts?.points_forts||r.texts?.suggestions).slice(0,15).map((r,i)=>(
+                <div key={i} style={{padding:'.75rem',background:'var(--gray-50)',borderRadius:'.6rem',marginBottom:'.6rem'}}>
+                  <div style={{fontSize:'.72rem',color:'var(--gray-400)',marginBottom:'.35rem'}}>Promo {r.promo} — {r.submittedAt?.toDate?.()?.toLocaleDateString('fr-FR')}</div>
+                  {r.texts?.points_forts&&<p style={{fontSize:'.85rem',color:'#166534'}}><strong>✅ Points forts :</strong> {r.texts.points_forts}</p>}
+                  {r.texts?.points_amelio&&<p style={{fontSize:'.85rem',color:'#92400E',marginTop:'.35rem'}}><strong>⚠️ À améliorer :</strong> {r.texts.points_amelio}</p>}
+                  {r.texts?.suggestions&&<p style={{fontSize:'.85rem',color:'#1E40AF',marginTop:'.35rem'}}><strong>💡 Suggestions :</strong> {r.texts.suggestions}</p>}
+                </div>
+              ))}
+              {responses.length===0&&<p style={{color:'var(--gray-500)',textAlign:'center'}}>Aucune évaluation reçue.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== APP_URL CONSTANT (configure after deployment) ===== */
+const APP_URL = "https://olivierbonnot.github.io/du-tdah/";
+
+/* ===== ADMIN LOGIN ===== */
+function AdminLogin({onLogin}){
+  const [pw, setPw] = React.useState('');
+  const [err, setErr] = React.useState(false);
+  const check = () => {
+    if(pw===ADMIN_PASSWORD) onLogin();
+    else{setErr(true);setTimeout(()=>setErr(false),2000);}
+  };
+  return (
+    <div style={{maxWidth:380,margin:'0 auto'}}>
+      <div className="card">
+        <div className="card-header" style={{background:'linear-gradient(135deg,#FFFBEB,#fff)',borderTop:'3px solid var(--s4)'}}>
+          <h3 style={{fontWeight:700}}>🔐 Accès administrateur</h3>
+        </div>
+        <div className="card-body">
+          {err&&<div className="alert alert-error"><span>⚠️</span>Mot de passe incorrect.</div>}
+          <div className="form-group">
+            <label>Mot de passe admin</label>
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="••••"/>
+          </div>
+          <button className="btn btn-primary" onClick={check} style={{width:'100%',justifyContent:'center'}}>→ Entrer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== MAIN APP ===== */
+function App(){
+  const [user, setUser] = React.useState(getLocalUser);
+  const [screen, setScreen] = React.useState(user?'home':'welcome');
+  const [tab, setTab] = React.useState('questionnaire');
+  const [adminAuth, setAdminAuth] = React.useState(false);
+  const [unread, setUnread] = React.useState(0);
+
+  React.useEffect(()=>{
+    if(!user) return;
+    const q = db.collection("messages").where("toId","==",user.id).where("read","==",false);
+    return q.onSnapshot(s=>setUnread(s.size));
+  },[user]);
+
+  const logout = () => {
+    localStorage.removeItem("du_u");
+    setUser(null);setScreen('welcome');setAdminAuth(false);setTab('questionnaire');
+  };
+
+  const handleRegister = (u) => {setUser(u);setScreen('home');};
+  const handleRecover = (u) => {setUser(u);setScreen('home');};
+
+  if(screen==='welcome') return (
+    <div>
+      <div className="app-header"><span style={{fontSize:'1.6rem'}}>🧠</span><h1>DIU TDAH</h1><span className="badge">Université Paris-Saclay</span></div>
+      <div className="container"><Welcome onRegister={()=>setScreen('register')} onLogin={handleRecover}/></div>
+    </div>
+  );
+
+  if(screen==='register') return (
+    <div>
+      <div className="app-header"><span style={{fontSize:'1.6rem'}}>🧠</span><h1>DIU TDAH</h1><span className="badge">Inscription</span></div>
+      <div className="container"><Register onDone={handleRegister}/></div>
+    </div>
+  );
+
+  const navItems = [
+    {id:'questionnaire',label:'📝 Évaluation'},
+    {id:'resources',label:'📚 Ressources'},
+    {id:'bonus',label:'🎁 Bonus'},
+    {id:'annuaire',label:'👥 Annuaire'},
+    {id:'messages',label:unread>0?`✉️ Messages (${unread})`:'✉️ Messages'},
+    {id:'admin',label:'⚙️ Admin'}
+  ];
+
+  return (
+    <div>
+      <div className="app-header">
+        <span style={{fontSize:'1.6rem'}}>🧠</span>
+        <div style={{flex:1}}>
+          <h1>DIU TDAH</h1>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
+          <div style={{background:'rgba(255,255,255,.2)',borderRadius:'.5rem',padding:'.3rem .7rem',backdropFilter:'blur(6px)'}}>
+            <div style={{color:'#fff',fontSize:'.78rem',fontWeight:700,lineHeight:1}}>{user.prenom} {user.nom}</div>
+            <div style={{color:'rgba(255,255,255,.75)',fontSize:'.68rem'}}>Promo {user.promo}</div>
+          </div>
+          <button onClick={logout} className="btn btn-sm" style={{background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)'}}>
+            ↩ Quitter
+          </button>
+        </div>
+      </div>
+      <nav className="nav">
+        {navItems.map(n=>(
+          <button key={n.id} className={tab===n.id?'active':''} onClick={()=>setTab(n.id)}>{n.label}</button>
+        ))}
+      </nav>
+      <div className="container">
+        {tab==='questionnaire'&&<Questionnaire user={user}/>}
+        {tab==='resources'&&<Resources user={user}/>}
+        {tab==='bonus'&&<BonusResources user={{...user,isAdmin:adminAuth}}/>}
+        {tab==='annuaire'&&<Annuaire user={user}/>}
+        {tab==='messages'&&<Messaging user={user}/>}
+        {tab==='admin'&&(adminAuth?<AdminDash/>:<AdminLogin onLogin={()=>setAdminAuth(true)}/>)}
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>
