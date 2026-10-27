@@ -926,6 +926,7 @@ function BonusResources({user}){
 function Resources({user}){
   const [openSess, setOpenSess] = React.useState(1);
   const [firestoreRes, setFirestoreRes] = React.useState({});
+  const deleteRes = async(id) => { if(window.confirm('Supprimer cette ressource ?')) await db.collection("resources").doc(id).delete(); };
 
   React.useEffect(()=>{
     return db.collection("resources").onSnapshot(snap=>{
@@ -991,7 +992,12 @@ function Resources({user}){
                     </div>
                     <div style={{fontSize:'.78rem',color:'var(--gray-500)',marginBottom:'.4rem'}}>{c.teacher}</div>
                     {hasRes?
-                      allRes.map((r,i)=><ResourceItem key={i} res={r}/>):
+                      allRes.map((r,i)=>(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:'.4rem'}}>
+                          <div style={{flex:1}}><ResourceItem res={r}/></div>
+                          {user.isAdmin&&r.id&&<button onClick={()=>deleteRes(r.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#F43F5E',fontSize:'1rem',padding:'2px 4px',lineHeight:1}} title="Supprimer">✕</button>}
+                        </div>
+                      )):
                       <div style={{fontSize:'.78rem',color:'#F43F5E',fontStyle:'italic'}}>Pas encore de ressources pour ce cours.</div>
                     }
                   </div>
@@ -1015,7 +1021,12 @@ function Resources({user}){
               {visibleExtras.map(k=>(
                 <div key={k} style={{marginBottom:'.75rem',paddingBottom:'.75rem',borderBottom:'1px solid var(--gray-100)'}}>
                   <div style={{fontWeight:600,fontSize:'.9rem',marginBottom:'.4rem'}}>{k}</div>
-                  {(firestoreRes[k]||[]).filter(r=>canSeeResource(r,user)).map((r,i)=><ResourceItem key={i} res={r}/>)}
+                  {(firestoreRes[k]||[]).filter(r=>canSeeResource(r,user)).map((r,i)=>(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:'.4rem'}}>
+                      <div style={{flex:1}}><ResourceItem res={r}/></div>
+                      {user.isAdmin&&r.id&&<button onClick={()=>deleteRes(r.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#F43F5E',fontSize:'1rem',padding:'2px 4px',lineHeight:1}} title="Supprimer">✕</button>}
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
