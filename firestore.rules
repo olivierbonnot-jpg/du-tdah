@@ -11,7 +11,9 @@ service cloud.firestore {
 
     function signedIn()      { return request.auth != null; }
     function myEmail()       { return request.auth.token.email.lower(); }
-    function isAdmin()       { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    // Admin principal (Pr Olivier Bonnot) + éventuels comptes listés dans la collection « admins ».
+    function isAdmin()       { return signedIn() && (request.auth.uid in ['VseeZ4zCpndISwoMm2kSBkpfq752']
+                                                     || exists(/databases/$(database)/documents/admins/$(request.auth.uid))); }
     function isParticipant() { return signedIn() && exists(/databases/$(database)/documents/participants/$(request.auth.uid)); }
     function isBlocked()     { return exists(/databases/$(database)/documents/blocked/$(myEmail())); }
     function myLegacyId()    { return get(/databases/$(database)/documents/participants/$(request.auth.uid)).data.get('legacyId', '__none__'); }

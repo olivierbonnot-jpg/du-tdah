@@ -127,6 +127,9 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 auth.languageCode = 'fr';   // e-mails de réinitialisation en français
 const MIN_PW = 8;
+/* Compte administrateur principal (Pr Olivier Bonnot). Doit rester identique à firestore.rules.
+   D'autres admins peuvent être ajoutés par un document admins/{uid}. */
+const ADMIN_UIDS = ['VseeZ4zCpndISwoMm2kSBkpfq752'];
 /* Accès administrateur : un document admins/{uid} (créé hors application).
    Le droit d'accès réel est contrôlé par les règles Firestore. */
 if(EMAILJS_CONFIG.publicKey && !EMAILJS_CONFIG.publicKey.startsWith("REMPLACER")){
@@ -294,6 +297,19 @@ async function claimLegacyProfile(fbUser){
   }catch(e){ console.warn('Rattachement des messages :', e); }
   try{ await legacy.ref.delete(); }catch(e){ console.warn('Ancienne fiche :', e); }
   return {id:fbUser.uid, ...data};
+}
+
+/* Fin de reprise, relancée à chaque connexion tant que l'ancienne fiche existe
+   (cas où la suppression ou le rattachement des messages avait échoué). */
+async function finishLegacyCleanup(fbUser, legacyId){
+  try{
+    const old = await db.collection("participants").doc(legacyId).get();
+    for(const field of ['toId','fromId']){
+      const ms = await db.collection("messages").where(field,"==",legacyId).get();
+      for(const m of ms.docs) await m.ref.update({[field]:fbUser.uid});
+    }
+    if(old.exists) await old.ref.delete();
+  }catch(e){ console.warn('Reprise ancienne fiche :', e); }
 }
 const sessionColor = (num) => SESSION_COLORS[num]||'s1';
 
@@ -1269,7 +1285,7 @@ function AdminDash({me}){
               </div>
               <div style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
                 <span style={{fontSize:'.78rem',color:'var(--gray-400)'}}>{p.inDirectory?'📒 Annuaire':'🔒 Privé'}</span>
-                {p.id!==me?.id&&<button className="btn btn-sm btn-danger" onClick={()=>removeParticipant(p)} title="Supprimer ce participant">🗑 Supprimer</button>}
+                {p.id!==me?.id&&(p.email||'').toLowerCase()!==(me?.email||'').toLowerCase()&&<button className="btn btn-sm btn-danger" onClick={()=>removeParticipant(p)} title="Supprimer ce participant">🗑 Supprimer</button>}
               </div>
             </div>
           ))}
@@ -1463,10 +1479,11 @@ function App(){
         db.collection("admins").doc(u.uid).get().catch(()=>null),
         db.collection("blocked").doc(email).get().catch(()=>null)
       ]);
-      setIsAdmin(!!(adm&&adm.exists));
+      setIsAdmin(ADMIN_UIDS.includes(u.uid) || !!(adm&&adm.exists));
       if(blk&&blk.exists){ setScreen('blocked'); return; }
       const snap = await db.collection("participants").doc(u.uid).get();
       const profile = snap.exists ? {id:u.uid,...snap.data()} : await claimLegacyProfile(u);
+      if(snap.exists && profile.legacyId) finishLegacyCleanup(u, profile.legacyId);
       if(profile){ setUser(profile); setScreen('home'); }
       else setScreen('register');        // compte créé, fiche à compléter
     }catch(e){
