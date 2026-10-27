@@ -863,10 +863,6 @@ function Resources({user}){
 
   return (
     <div>
-      <div className="alert alert-warning">
-        <span>⚠️</span>
-        <span>Les ressources Dropbox nécessitent que le lien soit configuré en <strong>"Toute personne disposant du lien"</strong> dans vos paramètres Dropbox.</span>
-      </div>
       {/* S1 general resource */}
       {DROPBOX_RESOURCES['_S1_general']&&(
         <div className="card" style={{borderTop:'3px solid var(--primary)'}}>
