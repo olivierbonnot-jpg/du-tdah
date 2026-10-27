@@ -30,6 +30,7 @@
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--gray-50);color:var(--gray-900);min-height:100vh}
 .app-header{background:linear-gradient(135deg,#6366F1 0%,#8B5CF6 50%,#EC4899 100%);padding:1.25rem 1.5rem;display:flex;align-items:center;gap:1rem;box-shadow:0 4px 20px rgba(99,102,241,0.4)}
 .app-header h1{color:#fff;font-size:1.35rem;font-weight:700;letter-spacing:-0.02em}
+.app-header{flex-wrap:wrap}
 .app-header .badge{background:rgba(255,255,255,0.2);color:#fff;font-size:.7rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;backdrop-filter:blur(4px)}
 .nav{background:#fff;border-bottom:1px solid var(--gray-200);padding:0 1.5rem;display:flex;gap:.25rem;overflow-x:auto;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .nav button{background:none;border:none;padding:.75rem 1rem;font-size:.85rem;font-weight:500;color:var(--gray-500);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s}
@@ -121,6 +122,7 @@ const EMAILJS_CONFIG = {
   publicKey: "F5T4EeLVCb9bw835w"
 };
 const PROMOS = ["2025-2026","2026-2027"];
+const UNIV = "Université Paris-Saclay & Paris Cité";
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
@@ -584,7 +586,7 @@ function Welcome({onRegister}){
       <div className="welcome-hero">
         <div style={{fontSize:'3rem',marginBottom:'.5rem'}}>🧠</div>
         <h2>DIU TDAH</h2>
-        <p>Université Paris-Saclay — Plateforme pédagogique &amp; questionnaire de satisfaction</p>
+        <p>Université Paris-Saclay &amp; Paris Cité · Plateforme pédagogique &amp; questionnaire de satisfaction</p>
         <div style={{display:'flex',gap:.75+'rem',justifyContent:'center',flexWrap:'wrap'}}>
           <button className="btn" onClick={()=>setShowLogin(true)}
             style={{background:'#fff',color:'var(--primary)',fontWeight:700,boxShadow:'0 4px 15px rgba(0,0,0,.2)'}}>
@@ -1509,12 +1511,12 @@ function App(){
   );
 
   if(screen==='loading') return (
-    <div><Header badge="Université Paris-Saclay"/>
+    <div><Header badge={UNIV}/>
       <div className="container" style={{textAlign:'center',padding:'3rem',color:'var(--gray-500)'}}>Chargement...</div></div>
   );
 
   if(screen==='welcome') return (
-    <div><Header badge="Université Paris-Saclay"/>
+    <div><Header badge={UNIV}/>
       <div className="container"><Welcome onRegister={()=>setScreen('register')}/></div></div>
   );
 
@@ -1525,7 +1527,7 @@ function App(){
   );
 
   if(screen==='blocked'||screen==='error') return (
-    <div><Header badge="Université Paris-Saclay"/>
+    <div><Header badge={UNIV}/>
       <div className="container"><div className="card" style={{maxWidth:480,margin:'0 auto'}}><div className="card-body" style={{textAlign:'center',padding:'2rem'}}>
         <div style={{fontSize:'2.5rem',marginBottom:'.75rem'}}>{screen==='blocked'?'🔒':'⚠️'}</div>
         <p style={{color:'var(--gray-700)',lineHeight:1.6}}>
@@ -1550,8 +1552,9 @@ function App(){
     <div>
       <div className="app-header">
         <span style={{fontSize:'1.6rem'}}>🧠</span>
-        <div style={{flex:1}}>
+        <div style={{flex:1,display:'flex',alignItems:'center',gap:'.75rem',flexWrap:'wrap',minWidth:0}}>
           <h1>DIU TDAH</h1>
+          <span className="badge">{UNIV}</span>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
           <div style={{background:'rgba(255,255,255,.2)',borderRadius:'.5rem',padding:'.3rem .7rem',backdropFilter:'blur(6px)'}}>
