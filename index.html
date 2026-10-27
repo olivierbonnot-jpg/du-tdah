@@ -412,7 +412,7 @@ function AccountRecovery({onBack, onRecover}){
     <div style={{maxWidth:480,margin:'0 auto'}}>
       <div className="card">
         <div className="card-header" style={{background:'linear-gradient(135deg,#EFF6FF,#fff)',borderTop:'3px solid var(--s1)'}}>
-          <h3 style={{fontSize:'1.05rem',fontWeight:700}}>🔑 Retrouver mon compte</h3>
+          <h3 style={{fontSize:'1.05rem',fontWeight:700}}>🔑 Se connecter</h3>
           <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:'.25rem'}}>Saisissez votre email d'inscription pour restaurer votre profil</p>
         </div>
         <div className="card-body">
@@ -425,7 +425,7 @@ function AccountRecovery({onBack, onRecover}){
           <div style={{display:'flex',gap:'.75rem'}}>
             <button className="btn btn-secondary" onClick={onBack} style={{flex:1,justifyContent:'center'}}>← Retour</button>
             <button className="btn btn-primary" onClick={recover} disabled={loading} style={{flex:2,justifyContent:'center'}}>
-              {loading?<><span className="spinner"></span> Recherche...</>:'🔍 Retrouver mon compte'}
+              {loading?<><span className="spinner"></span> Connexion...</>:'🔍 Se connecter'}
             </button>
           </div>
         </div>
@@ -445,13 +445,13 @@ function Welcome({onRegister, onLogin}){
         <h2>DIU TDAH</h2>
         <p>Université Paris-Saclay — Plateforme pédagogique &amp; questionnaire de satisfaction</p>
         <div style={{display:'flex',gap:.75+'rem',justifyContent:'center',flexWrap:'wrap'}}>
-          <button className="btn" onClick={onRegister}
-            style={{background:'#fff',color:'var(--primary)',fontWeight:700,boxShadow:'0 4px 15px rgba(0,0,0,.2)'}}>
-            ✏️ Créer mon profil
-          </button>
           <button className="btn" onClick={()=>setShowRecovery(true)}
+            style={{background:'#fff',color:'var(--primary)',fontWeight:700,boxShadow:'0 4px 15px rgba(0,0,0,.2)'}}>
+            🔑 Se connecter
+          </button>
+          <button className="btn" onClick={onRegister}
             style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'1.5px solid rgba(255,255,255,.4)'}}>
-            🔑 Retrouver mon compte
+            ✏️ Créer mon profil
           </button>
         </div>
       </div>
