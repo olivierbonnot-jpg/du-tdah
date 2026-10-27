@@ -207,10 +207,21 @@ const SESSIONS = [
 
 /* ===== DROPBOX RESOURCES (vidéos uniquement — pptx gérés via Firestore) ===== */
 const DROPBOX_RESOURCES = {
-  'S1C2':[{type:'video',promo:'2026-2027',label:'Vidéo cours — Critères diagnostiques (Acquaviva)',url:'https://www.dropbox.com/scl/fi/sg2scbrvf14jcw10vzjjg/Cours-TDAH-Crit-res-diagnostics-Eric-Acquavive.mov?rlkey=0uubj3d6rheljujv5kvpsx95u&dl=0'}],
-  'S1C7':[{type:'video',promo:'2026-2027',label:'Vidéo cours — Cas clinique enfant, échelles et questionnaires (Moscoso)',url:'https://www.dropbox.com/scl/fi/ho57irsx3x5spqtwwtmun/Cas-Cliniques-et-Echelles-Ana-Moscoso.mov?rlkey=0hexbhn9n0osj6snkqrdb4z28&dl=0'}],
-  'S1C8':[{type:'video',promo:'2026-2027',label:'Vidéo cours — Bilan neuropsychologique (Jacquier Roussel)',url:'https://www.dropbox.com/scl/fi/9wu1284fnh1fpms1fjqto/Manon-Rouselle-Examen-Psychologique-Enfant.mov?rlkey=7u6m15zeg74c82dxwmnr18z4j&dl=0'}]
+  'S1C2':[{type:'video',promo:'2026-2027',label:'Vidéo',url:'https://www.dropbox.com/scl/fi/sg2scbrvf14jcw10vzjjg/Cours-TDAH-Crit-res-diagnostics-Eric-Acquavive.mov?rlkey=0uubj3d6rheljujv5kvpsx95u&dl=0'}],
+  'S1C7':[{type:'video',promo:'2026-2027',label:'Vidéo',url:'https://www.dropbox.com/scl/fi/ho57irsx3x5spqtwwtmun/Cas-Cliniques-et-Echelles-Ana-Moscoso.mov?rlkey=0hexbhn9n0osj6snkqrdb4z28&dl=0'}],
+  'S1C8':[{type:'video',promo:'2026-2027',label:'Vidéo',url:'https://www.dropbox.com/scl/fi/9wu1284fnh1fpms1fjqto/Manon-Rouselle-Examen-Psychologique-Enfant.mov?rlkey=7u6m15zeg74c82dxwmnr18z4j&dl=0'}]
 };
+
+/* ===== ORDRE D'AFFICHAGE DES RESSOURCES D'UN COURS =====
+   Vidéo, Podcast, Résumé, Diapos, puis le reste. */
+function resRank(r){
+  const l=(r.label||'').toLowerCase();
+  if(r.type==='video') return 0;
+  if(r.type==='audio') return 1;
+  if(l.startsWith('résumé')||l.startsWith('resume')) return 2;
+  if(l.startsWith('diapo')) return 3;
+  return 4;
+}
 
 /* ===== RESOURCE VISIBILITY RULE =====
    Admin voit tout.
@@ -619,8 +630,16 @@ function Annuaire({user}){
   const [sending, setSending] = React.useState(false);
 
   React.useEffect(()=>{
-    db.collection("participants").where("inDirectory","==",true).orderBy("nom").onSnapshot(snap=>{
-      setList(snap.docs.map(d=>({id:d.id,...d.data()})));
+    /* Pas d'orderBy côté Firestore : filtre + tri exigerait un index composite.
+       Le tri alphabétique est fait dans le navigateur. */
+    return db.collection("participants").where("inDirectory","==",true).onSnapshot(snap=>{
+      const rows = snap.docs.map(d=>({id:d.id,...d.data()}));
+      rows.sort((a,b)=>`${a.nom||''} ${a.prenom||''}`.localeCompare(`${b.nom||''} ${b.prenom||''}`,'fr',{sensitivity:'base'}));
+      setList(rows);
+      setLoading(false);
+    }, err=>{
+      console.error('Annuaire :', err);
+      setList([]);
       setLoading(false);
     });
   },[]);
@@ -672,7 +691,7 @@ function Annuaire({user}){
         <div key={p.id} className="participant-card">
           <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
             <div style={{width:'2.5rem',height:'2.5rem',borderRadius:'50%',background:'linear-gradient(135deg,var(--primary),#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:'1rem',flexShrink:0}}>
-              {(p.prenom[0]||'?').toUpperCase()}{(p.nom[0]||'').toUpperCase()}
+              {((p.prenom||'?')[0]).toUpperCase()}{((p.nom||'')[0]||'').toUpperCase()}
             </div>
             <div>
               <div style={{fontWeight:700}}>{p.prenom} {p.nom}</div>
@@ -718,29 +737,29 @@ function Messaging({user}){
   const [sending, setSending] = React.useState(false);
 
   React.useEffect(()=>{
-    const q = db.collection("messages").where("toId","==",user.id).orderBy("createdAt","desc");
+    const q = db.collection("messages").where("toId","==",user.id);
     return q.onSnapshot(snap=>{
       const byFrom={};
       snap.docs.forEach(d=>{
         const m={id:d.id,...d.data()};
         if(!byFrom[m.fromId]||m.createdAt>byFrom[m.fromId].createdAt) byFrom[m.fromId]=m;
       });
-      setThreads(Object.values(byFrom).sort((a,b)=>b.createdAt?.seconds-a.createdAt?.seconds));
-    });
+      setThreads(Object.values(byFrom).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)));
+    }, err=>console.error('Messagerie :', err));
   },[user.id]);
 
   React.useEffect(()=>{
     if(!active) return;
-    const q = db.collection("messages").where("toId","==",user.id).where("fromId","==",active.fromId).orderBy("createdAt");
-    const q2 = db.collection("messages").where("fromId","==",user.id).where("toId","==",active.fromId).orderBy("createdAt");
-    const combined = [];
+    const q = db.collection("messages").where("toId","==",user.id).where("fromId","==",active.fromId);
+    const q2 = db.collection("messages").where("fromId","==",user.id).where("toId","==",active.fromId);
     let u1=[], u2=[];
     const merge = () => {
-      const all = [...u1,...u2].sort((a,b)=>a.createdAt?.seconds-b.createdAt?.seconds);
+      const all = [...u1,...u2].sort((a,b)=>(a.createdAt?.seconds||Infinity)-(b.createdAt?.seconds||Infinity));
       setMsgs(all);
     };
-    const unsub1 = q.onSnapshot(s=>{u1=s.docs.map(d=>({id:d.id,...d.data()}));merge();});
-    const unsub2 = q2.onSnapshot(s=>{u2=s.docs.map(d=>({id:d.id,...d.data()}));merge();});
+    const onErr = err=>console.error('Conversation :', err);
+    const unsub1 = q.onSnapshot(s=>{u1=s.docs.map(d=>({id:d.id,...d.data()}));merge();}, onErr);
+    const unsub2 = q2.onSnapshot(s=>{u2=s.docs.map(d=>({id:d.id,...d.data()}));merge();}, onErr);
     return()=>{unsub1();unsub2();};
   },[active]);
 
@@ -825,8 +844,14 @@ function BonusResources({user}){
   const isAdmin = user?.isAdmin;
 
   React.useEffect(()=>{
-    return db.collection("bonus").where("category","==",tab).orderBy("createdAt").onSnapshot(snap=>{
-      setItems(snap.docs.map(d=>({id:d.id,...d.data()})));
+    return db.collection("bonus").where("category","==",tab).onSnapshot(snap=>{
+      const rows = snap.docs.map(d=>({id:d.id,...d.data()}));
+      rows.sort((a,b)=>(a.createdAt?.seconds||Infinity)-(b.createdAt?.seconds||Infinity));
+      setItems(rows);
+      setLoading(false);
+    }, err=>{
+      console.error('Bonus :', err);
+      setItems([]);
       setLoading(false);
     });
   },[tab]);
@@ -976,7 +1001,7 @@ function Resources({user}){
               {sess.courses.map(c=>{
                 const dbxRes = (DROPBOX_RESOURCES[c.id]||[]).filter(r=>canSeeResource(r,user));
                 const fsRes = (firestoreRes[c.id]||[]).filter(r=>canSeeResource(r,user));
-                const allRes = [...dbxRes,...fsRes];
+                const allRes = [...dbxRes,...fsRes].sort((a,b)=>resRank(a)-resRank(b));
                 const hasRes = allRes.length>0;
                 return (
                   <div key={c.id} style={{
