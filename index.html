@@ -1050,7 +1050,7 @@ function AdminDash(){
   },[tab,responses]);
 
   const sendBroadcast = async() => {
-    if(!broadcast.body.trim()) return;
+    if(!broadcast.body.trim()||!broadcast.subject.trim()) return;
     setSending(true); setBroadcastStatus(null);
     try{
       let targets = [...participants];
@@ -1064,6 +1064,7 @@ function AdminDash(){
             await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
               to_email:p.email, to_name:`${p.prenom} ${p.nom}`,
               from_name:'Admin DIU TDAH',
+              subject: broadcast.subject.trim(),
               message_preview:broadcast.body.substring(0,300),
               app_link: typeof APP_URL!=='undefined'?APP_URL:'(voir URL de l\'application)'
             });
@@ -1174,6 +1175,11 @@ function AdminDash(){
                 </select>
               </div>
               <div className="form-group">
+                <label>Objet *</label>
+                <input value={broadcast.subject} onChange={e=>setBroadcast(b=>({...b,subject:e.target.value}))}
+                  placeholder="Ex : DIU TDAH — Nouvelle ressource disponible"/>
+              </div>
+              <div className="form-group">
                 <label>Message *</label>
                 <textarea rows={5} value={broadcast.body} onChange={e=>setBroadcast(b=>({...b,body:e.target.value}))}
                   placeholder="Votre message aux participants...&#10;&#10;Un lien vers l'application sera automatiquement inclus dans l'email."/>
@@ -1185,7 +1191,7 @@ function AdminDash(){
                   Le message sera envoyé par email (via EmailJS) et stocké dans la messagerie de chaque participant.
                 </span>
               </div>
-              <button className="btn btn-primary" onClick={sendBroadcast} disabled={sending||!broadcast.body.trim()}
+              <button className="btn btn-primary" onClick={sendBroadcast} disabled={sending||!broadcast.body.trim()||!broadcast.subject.trim()}
                 style={{width:'100%',justifyContent:'center',padding:'.9rem'}}>
                 {sending?<><span className="spinner"></span> Envoi en cours...</>:'📢 Envoyer le message groupé'}
               </button>
