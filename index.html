@@ -661,15 +661,18 @@ function Annuaire({user}){
     setSending(false);
   };
 
+  /* Le participant connecté apparaît aussi (en tête, marqué « Vous »),
+     pour qu'il voie sa fiche et que l'annuaire ne paraisse pas vide. */
   const filtered = list.filter(p=>{
-    if(p.id===user.id) return false;
     if(filter.promo && p.promo!==filter.promo) return false;
     if(filter.search){
       const q=filter.search.toLowerCase();
       return `${p.prenom} ${p.nom} ${p.profession} ${p.lieu}`.toLowerCase().includes(q);
     }
     return true;
-  });
+  }).sort((a,b)=>(b.id===user.id)-(a.id===user.id));
+  const others = list.filter(p=>p.id!==user.id);
+  const meListed = list.some(p=>p.id===user.id);
 
   return (
     <div>
@@ -686,7 +689,13 @@ function Annuaire({user}){
         </div>
       </div>
       {loading?<div style={{textAlign:'center',padding:'2rem',color:'var(--gray-500)'}}>Chargement...</div>:
-      filtered.length===0?<div className="card"><div className="card-body" style={{textAlign:'center',color:'var(--gray-500)'}}>Aucun participant trouvé.</div></div>:
+      <>
+      {!meListed&&<div className="card"><div className="card-body" style={{fontSize:'.85rem',color:'var(--gray-500)'}}>
+        Votre fiche n'apparaît pas dans l'annuaire : vous avez choisi de ne pas y figurer lors de votre inscription.
+      </div></div>}
+      {filtered.length===0?<div className="card"><div className="card-body" style={{textAlign:'center',color:'var(--gray-500)'}}>
+        {(filter.search||filter.promo)?'Aucun participant ne correspond à votre recherche.':'Aucun participant inscrit dans l\'annuaire pour l\'instant.'}
+      </div></div>:
       filtered.map(p=>(
         <div key={p.id} className="participant-card">
           <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
@@ -697,11 +706,16 @@ function Annuaire({user}){
               <div style={{fontWeight:700}}>{p.prenom} {p.nom}</div>
               <div style={{fontSize:'.8rem',color:'var(--gray-500)'}}>{p.profession}{p.lieu?` — ${p.lieu}`:''}</div>
               <span className="chip" style={{marginTop:'.25rem'}}>Promo {p.promo}</span>
+              {p.id===user.id&&<span className="chip" style={{marginTop:'.25rem',marginLeft:'.35rem',background:'#DCFCE7',color:'#166534'}}>Vous</span>}
             </div>
           </div>
-          <button className="btn btn-sm btn-primary" onClick={()=>setMsgModal(p)}>✉️ Message</button>
+          {p.id!==user.id&&<button className="btn btn-sm btn-primary" onClick={()=>setMsgModal(p)}>✉️ Message</button>}
         </div>
       ))}
+      {others.length===0&&!filter.search&&!filter.promo&&<div className="card"><div className="card-body" style={{textAlign:'center',color:'var(--gray-500)',fontSize:'.9rem'}}>
+        Aucun autre participant n'est encore inscrit. Les collègues apparaîtront ici au fur et à mesure de leur inscription.
+      </div></div>}
+      </>}
       {msgModal&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:'1rem'}}>
           <div className="card" style={{width:'100%',maxWidth:460,margin:0}}>
