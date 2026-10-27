@@ -833,118 +833,6 @@ function Messaging({user}){
   );
 }
 
-/* ===== RESSOURCES BONUS COMPONENT ===== */
-function BonusResources({user}){
-  const [tab, setTab] = React.useState('podcasts');
-  const [items, setItems] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [form, setForm] = React.useState({label:'',url:'',type:'audio',category:'podcasts'});
-  const [adding, setAdding] = React.useState(false);
-  const [showForm, setShowForm] = React.useState(false);
-  const isAdmin = user?.isAdmin;
-
-  React.useEffect(()=>{
-    return db.collection("bonus").where("category","==",tab).onSnapshot(snap=>{
-      const rows = snap.docs.map(d=>({id:d.id,...d.data()}));
-      rows.sort((a,b)=>(a.createdAt?.seconds||Infinity)-(b.createdAt?.seconds||Infinity));
-      setItems(rows);
-      setLoading(false);
-    }, err=>{
-      console.error('Bonus :', err);
-      setItems([]);
-      setLoading(false);
-    });
-  },[tab]);
-
-  const addItem = async() => {
-    if(!form.label||!form.url){return;}
-    setAdding(true);
-    try{
-      await db.collection("bonus").add({...form,category:tab,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-      setForm(f=>({...f,label:'',url:''}));
-      setShowForm(false);
-    }catch(e){console.error(e);}
-    setAdding(false);
-  };
-
-  const delItem = async(id) => {
-    if(!confirm("Supprimer cette ressource ?")) return;
-    await db.collection("bonus").doc(id).delete();
-  };
-
-  return (
-    <div>
-      <div className="card" style={{background:'linear-gradient(135deg,#FFF7ED,#FEF3C7)',borderTop:'3px solid var(--s4)',overflow:'visible'}}>
-        <div className="card-body">
-          <div className="section-title" style={{fontSize:'1.15rem'}}>🎁 Ressources Bonus</div>
-          <p style={{color:'var(--gray-600)',fontSize:'.88rem'}}>
-            Podcasts et fiches pratiques complémentaires disponibles depuis Dropbox. 
-            Ces ressources enrichissent le programme du DIU TDAH.
-          </p>
-        </div>
-      </div>
-
-      <div className="tab-pills">
-        {[['podcasts','🎙️ Podcasts'],['fiches','📄 Fiches pratiques']].map(([k,l])=>(
-          <button key={k} className={`tab-pill ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
-        ))}
-      </div>
-
-      {isAdmin&&(
-        <div className="admin-section">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span style={{fontWeight:600,fontSize:'.9rem'}}>⚙️ Admin — Gestion des ressources bonus</span>
-            <button className="btn btn-sm btn-primary" onClick={()=>setShowForm(!showForm)}>
-              {showForm?'✕ Fermer':'+ Ajouter'}
-            </button>
-          </div>
-          {showForm&&(
-            <div style={{marginTop:'1rem',display:'flex',flexDirection:'column',gap:'.6rem'}}>
-              <input style={{padding:'.6rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.875rem'}}
-                value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="Titre de la ressource"/>
-              <input style={{padding:'.6rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.875rem'}}
-                value={form.url} onChange={e=>setForm(f=>({...f,url:e.target.value}))} placeholder="URL Dropbox (public)"/>
-              <div style={{display:'flex',gap:'.5rem'}}>
-                <select style={{flex:1,padding:'.6rem .9rem',border:'1.5px solid var(--gray-200)',borderRadius:'.6rem',fontSize:'.875rem'}}
-                  value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
-                  <option value="audio">🎙️ Audio (podcast)</option>
-                  <option value="pdf">📄 PDF (fiche)</option>
-                  <option value="video">🎬 Vidéo</option>
-                  <option value="doc">📝 Document</option>
-                </select>
-                <button className="btn btn-green" onClick={addItem} disabled={adding}>
-                  {adding?<span className="spinner"></span>:'✓ Ajouter'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {loading?<div style={{textAlign:'center',padding:'2rem',color:'var(--gray-500)'}}>Chargement...</div>:
-      items.length===0?
-        <div className="card"><div className="card-body" style={{textAlign:'center',padding:'2.5rem'}}>
-          <div style={{fontSize:'2.5rem',marginBottom:'.75rem'}}>{tab==='podcasts'?'🎙️':'📄'}</div>
-          <p style={{color:'var(--gray-500)'}}>
-            {tab==='podcasts'?'Les podcasts seront disponibles prochainement.':'Les fiches pratiques seront disponibles prochainement.'}
-          </p>
-          {isAdmin&&<p style={{color:'var(--gray-400)',fontSize:'.82rem',marginTop:'.5rem'}}>
-            Créez le dossier "bonus/{tab}" dans Dropbox et ajoutez les ressources via le formulaire ci-dessus.
-          </p>}
-        </div></div>:
-        <div className="card"><div className="card-body">
-          {items.map(item=>(
-            <div key={item.id} style={{display:'flex',alignItems:'center',gap:'.5rem'}}>
-              <div style={{flex:1}}><ResourceItem res={item}/></div>
-              {isAdmin&&<button className="btn btn-sm btn-danger" onClick={()=>delItem(item.id)} style={{flexShrink:0}}>✕</button>}
-            </div>
-          ))}
-        </div></div>
-      }
-    </div>
-  );
-}
-
 /* ===== RESOURCES (SESSION RESOURCES) COMPONENT ===== */
 function Resources({user}){
   const [openSess, setOpenSess] = React.useState(1);
@@ -1450,7 +1338,6 @@ function App(){
   const navItems = [
     {id:'questionnaire',label:'📝 Évaluation'},
     {id:'resources',label:'📚 Ressources'},
-    {id:'bonus',label:'🎁 Bonus'},
     {id:'annuaire',label:'👥 Annuaire'},
     {id:'messages',label:unread>0?`✉️ Messages (${unread})`:'✉️ Messages'},
     {id:'admin',label:'⚙️ Admin'}
@@ -1481,7 +1368,6 @@ function App(){
       <div className="container">
         {tab==='questionnaire'&&<Questionnaire user={user}/>}
         {tab==='resources'&&<Resources user={user}/>}
-        {tab==='bonus'&&<BonusResources user={{...user,isAdmin:adminAuth}}/>}
         {tab==='annuaire'&&<Annuaire user={user}/>}
         {tab==='messages'&&<Messaging user={user}/>}
         {tab==='admin'&&(adminAuth?<AdminDash/>:<AdminLogin onLogin={()=>setAdminAuth(true)}/>)}
