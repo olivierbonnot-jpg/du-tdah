@@ -978,13 +978,21 @@ function Resources({user}){
                 const dbxRes = (DROPBOX_RESOURCES[c.id]||[]).filter(r=>canSeeResource(r,user));
                 const fsRes = (firestoreRes[c.id]||[]).filter(r=>canSeeResource(r,user));
                 const allRes = [...dbxRes,...fsRes];
+                const hasRes = allRes.length>0;
                 return (
-                  <div key={c.id} style={{marginBottom:'1rem',paddingBottom:'1rem',borderBottom:'1px solid var(--gray-100)'}}>
-                    <div style={{fontWeight:600,fontSize:'.9rem',marginBottom:'.35rem'}}>{c.title}</div>
-                    <div style={{fontSize:'.78rem',color:'var(--gray-500)',marginBottom:'.5rem'}}>{c.teacher}</div>
-                    {allRes.length===0?
-                      <div style={{fontSize:'.78rem',color:'var(--gray-400)',fontStyle:'italic'}}>Pas encore de ressources pour ce cours.</div>:
-                      allRes.map((r,i)=><ResourceItem key={i} res={r}/>)
+                  <div key={c.id} style={{
+                    marginBottom:'.6rem',padding:'.75rem',borderRadius:'.6rem',
+                    background: hasRes?'#F0FDF4':'#FFF1F2',
+                    border: `1px solid ${hasRes?'#BBF7D0':'#FECDD3'}`
+                  }}>
+                    <div style={{display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'.25rem'}}>
+                      <span style={{fontSize:'.85rem'}}>{hasRes?'🟢':'🔴'}</span>
+                      <span style={{fontWeight:600,fontSize:'.9rem'}}>{c.title}</span>
+                    </div>
+                    <div style={{fontSize:'.78rem',color:'var(--gray-500)',marginBottom:'.4rem'}}>{c.teacher}</div>
+                    {hasRes?
+                      allRes.map((r,i)=><ResourceItem key={i} res={r}/>):
+                      <div style={{fontSize:'.78rem',color:'#F43F5E',fontStyle:'italic'}}>Pas encore de ressources pour ce cours.</div>
                     }
                   </div>
                 );
@@ -993,6 +1001,27 @@ function Resources({user}){
           </div>
         );
       })}
+
+      {/* Ressources hors programme (courseId non présent dans SESSIONS) */}
+      {(()=>{
+        const knownIds = new Set(SESSIONS.flatMap(s=>s.courses.map(c=>c.id)));
+        const extraKeys = Object.keys(firestoreRes).filter(k=>!knownIds.has(k));
+        const visibleExtras = extraKeys.filter(k=>(firestoreRes[k]||[]).some(r=>canSeeResource(r,user)));
+        if(!visibleExtras.length) return null;
+        return (
+          <div className="card" style={{marginTop:'1rem'}}>
+            <div className="card-header"><span style={{fontWeight:700}}>📎 Ressources complémentaires</span></div>
+            <div className="card-body">
+              {visibleExtras.map(k=>(
+                <div key={k} style={{marginBottom:'.75rem',paddingBottom:'.75rem',borderBottom:'1px solid var(--gray-100)'}}>
+                  <div style={{fontWeight:600,fontSize:'.9rem',marginBottom:'.4rem'}}>{k}</div>
+                  {(firestoreRes[k]||[]).filter(r=>canSeeResource(r,user)).map((r,i)=><ResourceItem key={i} res={r}/>)}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -1008,7 +1037,7 @@ function AdminDash(){
   const [broadcast, setBroadcast] = React.useState({subject:'',body:'',filterPromo:'',filterSession:''});
   const [sending, setSending] = React.useState(false);
   const [broadcastStatus, setBroadcastStatus] = React.useState(null);
-  const [resForm, setResForm] = React.useState({courseId:'',label:'',url:'',type:'pptx',promo:PROMOS[PROMOS.length-1]});
+  const [resForm, setResForm] = React.useState({courseId:'',label:'',url:'',type:'pptx',promo:PROMOS[PROMOS.length-1],customCourseId:''});
   const [addingRes, setAddingRes] = React.useState(false);
   const chartRef = React.useRef(null);
   const chartInst = React.useRef(null);
@@ -1091,10 +1120,12 @@ function AdminDash(){
   };
 
   const addResource = async() => {
-    if(!resForm.courseId||!resForm.label||!resForm.url) return;
+    const effectiveCourseId = resForm.courseId==='__custom__' ? resForm.customCourseId.trim() : resForm.courseId;
+    if(!effectiveCourseId||!resForm.label||!resForm.url) return;
     setAddingRes(true);
-    await db.collection("resources").add({...resForm,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-    setResForm(f=>({...f,label:'',url:''}));
+    const {customCourseId,...rest} = resForm;
+    await db.collection("resources").add({...rest,courseId:effectiveCourseId,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    setResForm(f=>({...f,label:'',url:'',customCourseId:''}));
     setAddingRes(false);
   };
 
@@ -1208,10 +1239,16 @@ function AdminDash(){
               <div className="form-grid">
                 <div className="form-group">
                   <label>Cours</label>
-                  <select value={resForm.courseId} onChange={e=>setResForm(f=>({...f,courseId:e.target.value}))}>
+                  <select value={resForm.courseId} onChange={e=>setResForm(f=>({...f,courseId:e.target.value,customCourseId:''}))}>
                     <option value="">Sélectionner...</option>
                     {SESSIONS.flatMap(s=>s.courses.map(c=><option key={c.id} value={c.id}>{c.id} — {c.title.substring(0,40)}</option>))}
+                    <option value="__custom__">— Cours hors programme (saisie libre) —</option>
                   </select>
+                  {resForm.courseId==='__custom__'&&(
+                    <input style={{marginTop:'.4rem'}} value={resForm.customCourseId}
+                      onChange={e=>setResForm(f=>({...f,customCourseId:e.target.value}))}
+                      placeholder="Identifiant ou titre du cours (ex: S3C1 ou Conférence TDAH adulte)"/>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Type</label>
