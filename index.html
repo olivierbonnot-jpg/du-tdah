@@ -1127,11 +1127,15 @@ function AdminDash(){
     setResError(null);
     try {
       const {customCourseId,...rest} = resForm;
-      await db.collection("resources").add({...rest,courseId:effectiveCourseId,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      const timeout = new Promise((_,reject)=>setTimeout(()=>reject(new Error('Délai dépassé — vérifiez les règles Firestore (permission-denied ?)')),8000));
+      await Promise.race([
+        db.collection("resources").add({...rest,courseId:effectiveCourseId,createdAt:firebase.firestore.FieldValue.serverTimestamp()}),
+        timeout
+      ]);
       setResForm(f=>({...f,label:'',url:'',customCourseId:''}));
     } catch(e) {
       console.error('addResource error:', e);
-      setResError('Erreur lors de l\'ajout : ' + (e.message||e.code||'inconnue'));
+      setResError('Erreur : ' + (e.message||e.code||'inconnue'));
     } finally {
       setAddingRes(false);
     }
