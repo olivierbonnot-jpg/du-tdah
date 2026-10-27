@@ -1368,7 +1368,7 @@ function AdminLogin({onLogin}){
 function App(){
   const [user, setUser] = React.useState(getLocalUser);
   const [screen, setScreen] = React.useState(user?'home':'welcome');
-  const [tab, setTab] = React.useState('questionnaire');
+  const [tab, setTab] = React.useState('resources');
   const [adminAuth, setAdminAuth] = React.useState(false);
   const [unread, setUnread] = React.useState(0);
 
@@ -1380,7 +1380,7 @@ function App(){
 
   const logout = () => {
     localStorage.removeItem("du_u");
-    setUser(null);setScreen('welcome');setAdminAuth(false);setTab('questionnaire');
+    setUser(null);setScreen('welcome');setAdminAuth(false);setTab('resources');
   };
 
   const handleRegister = (u) => {setUser(u);setScreen('home');};
