@@ -128,83 +128,89 @@ if(EMAILJS_CONFIG.publicKey && !EMAILJS_CONFIG.publicKey.startsWith("REMPLACER")
   emailjs.init(EMAILJS_CONFIG.publicKey);
 }
 
-/* ===== SESSIONS DATA ===== */
+/* ===== SESSIONS DATA — programme définitif 2026-2027 =====
+   Les identifiants (S1C1, S1C2…) sont des clés stables : les ressources
+   et les évaluations enregistrées dans Firestore y sont rattachées.
+   Ne pas renuméroter. L'ordre d'affichage est celui du tableau
+   (ordre chronologique du programme), indépendamment des numéros. */
 const SESSION_COLORS = {1:'s1',2:'s2',3:'s3',4:'s4',5:'s5',6:'s6'};
 const SESSION_NAMES = {
-  1:'Session 1 — Introduction & Diagnostics',
-  2:'Session 2 — Clinique & Évaluation',
-  3:'Session 3 — Traitements & Interventions',
-  4:'Session 4 — Comorbidités & Situations spéciales',
-  5:'Session 5 — Prise en charge globale',
-  6:'Session 6 — Enjeux transversaux & Perspectives'
+  1:'Session 1 — TDAH de l\'enfant : les bases (15-16 oct. 2026)',
+  2:'Session 2 — TDAH de l\'enfant : pour aller plus loin (26-27 nov. 2026)',
+  3:'Session 3 — Focus TDAH de l\'adulte, commune DIU TND (14-15 janv. 2027)',
+  4:'Session 4 — TDAH de l\'adulte · Interventions et adaptations I (4-5 mars 2027)',
+  5:'Session 5 — Interventions et adaptations II · Organisation des soins (1er-2 avril 2027)',
+  6:'Session 6 — TDAH de l\'adulte (suite) · Évaluation de la formation (13-14 mai 2027)'
 };
 const SESSIONS = [
   {id:'S1',num:1,courses:[
-    {id:'S1C1',title:'Introduction commune aux TND et au TDAH',teacher:'Pr Bonnot'},
-    {id:'S1C2',title:'Critères diagnostiques chez l\'enfant',teacher:'Dr Acquaviva'},
-    {id:'S1C3',title:'Critères diagnostiques chez l\'adulte',teacher:'Dr Weibel'},
-    {id:'S1C4',title:'Troubles psychiatriques associés au TDAH',teacher:'Pr Bonnot'},
-    {id:'S1C5',title:'Neuropsychologie du TDAH',teacher:'Dr Chazal'},
-    {id:'S1C6',title:'Historique du TDAH',teacher:'Pr Bonnot'},
-    {id:'S1C7',title:'Génétique et neurobiologie',teacher:'Dr Martinez'},
-    {id:'S1C8',title:'Examen psychologique de l\'enfant',teacher:'Mme Rouselle'}
+    {id:'S1C1',title:'Présentation générale des troubles du neurodéveloppement',teacher:'Olivier Bonnot'},
+    {id:'S1C3',title:'Historique du TDAH',teacher:'Olivier Bonnot'},
+    {id:'S1C4',title:'Outils de repérage et diagnostiques',teacher:'Domitille Gras'},
+    {id:'S1C5',title:'Troubles psychiatriques associés chez l\'enfant',teacher:'Olivier Bonnot'},
+    {id:'S1C6',title:'Épidémiologie et trajectoires dans le TDAH',teacher:'Cédric Galéra'},
+    {id:'S1C2',title:'Critères diagnostiques du TDAH chez l\'enfant',teacher:'Eric Acquaviva'},
+    {id:'S1C7',title:'Cas clinique enfant : échelles et questionnaires',teacher:'Ana Moscoso'},
+    {id:'S1C8',title:'Apport du bilan neuropsychologique chez l\'enfant TDAH',teacher:'Manon Jacquier Roussel'}
   ]},
   {id:'S2',num:2,courses:[
-    {id:'S2C1',title:'Bilan neuropsychologique — protocoles',teacher:'Dr Chazal'},
-    {id:'S2C2',title:'Cas cliniques et échelles d\'évaluation',teacher:'Dr Moscoso'},
-    {id:'S2C3',title:'Imagerie et biomarqueurs',teacher:'Pr Laurent'},
-    {id:'S2C4',title:'TDAH et haut potentiel intellectuel',teacher:'Dr Weibel'},
-    {id:'S2C5',title:'Évaluation chez la femme',teacher:'Dr Bernard'},
-    {id:'S2C6',title:'Dépistage en médecine générale',teacher:'Dr Dupont'},
-    {id:'S2C7',title:'Annonce diagnostique',teacher:'Pr Bonnot'},
-    {id:'S2C8',title:'Outils numériques d\'évaluation',teacher:'Dr Perrin'}
+    {id:'S2C1',title:'Traitement médicamenteux : les bases',teacher:'Olivier Bonnot'},
+    {id:'S2C2',title:'TDAH et TSA',teacher:'Mario Speranza'},
+    {id:'S2C3',title:'Optimisation des traitements dans les cas complexes',teacher:'Diane Purper-Ouakil'},
+    {id:'S2C4',title:'Surpoids et obésité chez l\'enfant',teacher:'Pascale Isnard'},
+    {id:'S2C5',title:'Imagerie et TDAH',teacher:'Josselin Houenou'},
+    {id:'S2C6',title:'TDAH chez la jeune fille',teacher:'Julie Bourgin'},
+    {id:'S2C7',title:'Harcèlement scolaire et cyberharcèlement',teacher:'Alexis Schor'},
+    {id:'S2C8',title:'Maladies organiques et TDAH',teacher:'Olivier Bonnot'}
   ]},
   {id:'S3',num:3,courses:[
-    {id:'S3C1',title:'Médicaments psychostimulants : mécanismes',teacher:'Pr Bonnot'},
-    {id:'S3C2',title:'Méthylphénidate : pratique clinique',teacher:'Dr Acquaviva'},
-    {id:'S3C3',title:'Atomoxétine et autres non-stimulants',teacher:'Dr Weibel'},
-    {id:'S3C4',title:'Stratégies de prescription',teacher:'Dr Moscoso'},
-    {id:'S3C5',title:'Remédiation cognitive',teacher:'Dr Chazal'},
-    {id:'S3C6',title:'Psychoéducation patient et famille',teacher:'Pr Laurent'},
-    {id:'S3C7',title:'Thérapies cognitivo-comportementales',teacher:'Dr Bernard'},
-    {id:'S3C8',title:'Neurofeedback et TDAH',teacher:'Dr Perrin'},
-    {id:'S3C9',title:'Médecines complémentaires',teacher:'Dr Dupont'},
-    {id:'S3C10',title:'Approche multimodale — synthèse',teacher:'Pr Bonnot'}
+    {id:'S3C1',title:'Le TDAH chez l\'adulte',teacher:'Franck Bayle'},
+    {id:'S3C2',title:'Cas complexe chez l\'adulte',teacher:'Dr Rahioui'},
+    {id:'S3C3',title:'Échelles et questionnaires chez l\'adulte',teacher:'Romain Icick'},
+    {id:'S3C4',title:'TDAH, tics et syndrome de Gilles de la Tourette',teacher:'Andreas Hartmann'},
+    {id:'S3C5',title:'TDAH chez la femme',teacher:'Aline Lefebvre'},
+    {id:'S3C6',title:'Génétique et TDAH',teacher:'Yann Le Strat'},
+    {id:'S3C7',title:'TDAH et troubles de la personnalité',teacher:'Sara Bahadori'},
+    {id:'S3C8',title:'Représentation des personnes TDAH : rôle et enjeux pour les associations',teacher:'Christine Gétin'},
+    {id:'S3C9',title:'Spécificités cliniques et comorbidités addictives dans le TDAH',teacher:'Laurent Karila'},
+    {id:'S3C10',title:'Prise en charge des addictions : généralités et spécificités du TDAH',teacher:'Elsa Baumgarten et Amine Benyamina'}
   ]},
   {id:'S4',num:4,courses:[
-    {id:'S4C1',title:'TDAH et troubles anxieux',teacher:'Dr Bernard'},
-    {id:'S4C2',title:'TDAH et dépression',teacher:'Dr Weibel'},
-    {id:'S4C3',title:'TDAH et troubles des conduites',teacher:'Dr Acquaviva'},
-    {id:'S4C4',title:'TDAH et troubles du spectre autistique',teacher:'Pr Laurent'},
-    {id:'S4C5',title:'TDAH et addictions',teacher:'Dr Moscoso'},
-    {id:'S4C6',title:'TDAH et troubles dys',teacher:'Dr Chazal'},
-    {id:'S4C7',title:'TDAH et épilepsie',teacher:'Dr Perrin'}
+    {id:'S4C1',title:'Les troubles de la personnalité et leur prise en charge chez l\'adulte',teacher:'Sébastien Weibel'},
+    {id:'S4C2',title:'Optimisation des traitements dans les cas complexes',teacher:'Diane Purper-Ouakil'},
+    {id:'S4C3',title:'TDAH du sujet âgé',teacher:'Samuel Bulteau'},
+    {id:'S4C4',title:'Transition adolescent-adulte et mises en situation clinique',teacher:'Fanny Gollier'},
+    {id:'S4C5',title:'Sommeil et TDAH',teacher:'Michel Lecendreux'},
+    {id:'S4C6',title:'Intervention d\'Elie Khoury (titre à préciser)',teacher:'Elie Khoury'},
+    {id:'S4C7',title:'Psychoéducation et TCC chez l\'adulte et chez les étudiants',teacher:'Lucia Romo, Eve Plateau et Rafika Zebdi'},
+    {id:'S4C8',title:'Vue d\'ensemble des prises en charge non médicamenteuses du TDAH chez l\'enfant',teacher:'Aurélie Favé'}
   ]},
   {id:'S5',num:5,courses:[
-    {id:'S5C1',title:'Scolarisation et aménagements scolaires',teacher:'Mme Rouselle'},
-    {id:'S5C2',title:'Accompagnement familial',teacher:'Dr Bernard'},
-    {id:'S5C3',title:'TDAH et insertion professionnelle',teacher:'Dr Dupont'},
-    {id:'S5C4',title:'TDAH à l\'âge adulte : spécificités',teacher:'Dr Weibel'},
-    {id:'S5C5',title:'Coordination ville-hôpital',teacher:'Pr Bonnot'},
-    {id:'S5C6',title:'Droit et TDAH',teacher:'M. Legrand'},
-    {id:'S5C7',title:'Réseau de soins et parcours patient',teacher:'Dr Moscoso'},
-    {id:'S5C8',title:'Perspectives internationales',teacher:'Pr Laurent'}
+    {id:'S5C1',title:'Groupe d\'habiletés parentales (pratique)',teacher:'Benjamin Landman'},
+    {id:'S5C2',title:'Évaluation psychologique chez l\'adulte',teacher:'Svetoslava Nikolaeva'},
+    {id:'S5C3',title:'Les conseils pratiques à fournir aux parents',teacher:'Laurence Ollivier'},
+    {id:'S5C4',title:'Les structures de consultation dédiées et l\'organisation des soins en France',teacher:'Mariette Vinurel'},
+    {id:'S5C5',title:'L\'entraînement aux habiletés sociales chez l\'enfant',teacher:'Thomas Villemonteix'},
+    {id:'S5C6',title:'L\'éducation thérapeutique du patient adulte et l\'insertion',teacher:'Sarah Hadjadj'},
+    {id:'S5C7',title:'Gestion des comportements problèmes : aspects non médicaux',teacher:'Ana Moscoso'},
+    {id:'S5C8',title:'Prise en charge en psychomotricité dans le TDAH',teacher:'Intervenant(e) à préciser'}
   ]},
   {id:'S6',num:6,courses:[
-    {id:'S6C1',title:'TDAH et genre',teacher:'Dr Bernard'},
-    {id:'S6C2',title:'TDAH et périnatalité',teacher:'Dr Weibel'},
-    {id:'S6C3',title:'Recherche actuelle et essais cliniques',teacher:'Pr Bonnot'},
-    {id:'S6C4',title:'Intelligence artificielle et TDAH',teacher:'Dr Perrin'},
-    {id:'S6C5',title:'Éthique et TDAH',teacher:'Dr Chazal'},
-    {id:'S6C6',title:'Synthèse et perspectives',teacher:'Pr Bonnot'}
+    {id:'S6C1',title:'TDAH et burn-out',teacher:'David Da Fonseca'},
+    {id:'S6C2',title:'TDAH et société : perception, représentation, débats',teacher:'Bruno Falissard'},
+    {id:'S6C3',title:'La pair-aidance',teacher:'Jennifer Borsellino'},
+    {id:'S6C4',title:'L\'accompagnement à l\'université',teacher:'Jose Puig'},
+    {id:'S6C5',title:'Hygiène de vie et TDAH',teacher:'Gérard Macqueron'},
+    {id:'S6C6',title:'Épidémiologie',teacher:'Cédric Galéra'},
+    {id:'S6C7',title:'Conclusion du DIU, examen et évaluation de la formation',teacher:'Olivier Bonnot et Ana Moscoso'}
   ]}
 ];
 
 /* ===== DROPBOX RESOURCES (vidéos uniquement — pptx gérés via Firestore) ===== */
 const DROPBOX_RESOURCES = {
   'S1C2':[{type:'video',promo:'2026-2027',label:'Vidéo cours — Critères diagnostiques (Acquaviva)',url:'https://www.dropbox.com/scl/fi/sg2scbrvf14jcw10vzjjg/Cours-TDAH-Crit-res-diagnostics-Eric-Acquavive.mov?rlkey=0uubj3d6rheljujv5kvpsx95u&dl=0'}],
-  'S1C8':[{type:'video',promo:'2026-2027',label:'Vidéo cours — Examen psychologique enfant (Rouselle)',url:'https://www.dropbox.com/scl/fi/9wu1284fnh1fpms1fjqto/Manon-Rouselle-Examen-Psychologique-Enfant.mov?rlkey=7u6m15zeg74c82dxwmnr18z4j&dl=0'}],
-  'S2C2':[{type:'video',promo:'2026-2027',label:'Vidéo cours — Cas cliniques & échelles (Moscoso)',url:'https://www.dropbox.com/scl/fi/ho57irsx3x5spqtwwtmun/Cas-Cliniques-et-Echelles-Ana-Moscoso.mov?rlkey=0hexbhn9n0osj6snkqrdb4z28&dl=0'}]
+  'S1C7':[{type:'video',promo:'2026-2027',label:'Vidéo cours — Cas clinique enfant, échelles et questionnaires (Moscoso)',url:'https://www.dropbox.com/scl/fi/ho57irsx3x5spqtwwtmun/Cas-Cliniques-et-Echelles-Ana-Moscoso.mov?rlkey=0hexbhn9n0osj6snkqrdb4z28&dl=0'}],
+  'S1C8':[{type:'video',promo:'2026-2027',label:'Vidéo cours — Bilan neuropsychologique (Jacquier Roussel)',url:'https://www.dropbox.com/scl/fi/9wu1284fnh1fpms1fjqto/Manon-Rouselle-Examen-Psychologique-Enfant.mov?rlkey=7u6m15zeg74c82dxwmnr18z4j&dl=0'}]
 };
 
 /* ===== RESOURCE VISIBILITY RULE =====
