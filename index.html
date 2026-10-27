@@ -9,6 +9,7 @@
 <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3.2.0/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -119,11 +120,15 @@ const EMAILJS_CONFIG = {
   templateId: "template_dbsxqoo",
   publicKey: "F5T4EeLVCb9bw835w"
 };
-const ADMIN_PASSWORD = "0071";
 const PROMOS = ["2025-2026","2026-2027"];
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
+const auth = firebase.auth();
+auth.languageCode = 'fr';   // e-mails de réinitialisation en français
+const MIN_PW = 8;
+/* Accès administrateur : un document admins/{uid} (créé hors application).
+   Le droit d'accès réel est contrôlé par les règles Firestore. */
 if(EMAILJS_CONFIG.publicKey && !EMAILJS_CONFIG.publicKey.startsWith("REMPLACER")){
   emailjs.init(EMAILJS_CONFIG.publicKey);
 }
@@ -245,11 +250,51 @@ SESSIONS.forEach(s=>s.courses.forEach(c=>{
 }));
 
 /* ===== UTILITIES ===== */
-const genId = () => Math.random().toString(36).slice(2,9)+Date.now().toString(36);
-const getLocalUser = () => { try{ const d=localStorage.getItem("du_u"); return d?JSON.parse(d):null; }catch{ return null; }};
-const saveLocalUser = u => localStorage.setItem("du_u", JSON.stringify(u));
-const hasSubmitted = (promo) => localStorage.getItem("du_ok_"+promo)==="1";
-const markSubmitted = (promo) => localStorage.setItem("du_ok_"+promo,"1");
+const hasSubmitted = (promo) => { try{ return localStorage.getItem("du_ok_"+promo)==="1"; }catch{ return false; } };
+const markSubmitted = (promo) => { try{ localStorage.setItem("du_ok_"+promo,"1"); }catch{} };
+const validEmail = (e) => /^\S+@\S+\.\S+$/.test((e||'').trim());
+
+/* Messages d'erreur Firebase Auth en français */
+const authErr = (e) => ({
+  'auth/invalid-email':"Adresse e-mail invalide.",
+  'auth/missing-password':"Saisissez votre mot de passe.",
+  'auth/weak-password':`Mot de passe trop court (${MIN_PW} caractères minimum).`,
+  'auth/email-already-in-use':"Un compte existe déjà avec cette adresse. Utilisez « Se connecter » (ou « Mot de passe oublié »).",
+  'auth/invalid-credential':"E-mail ou mot de passe incorrect.",
+  'auth/invalid-login-credentials':"E-mail ou mot de passe incorrect.",
+  'auth/wrong-password':"E-mail ou mot de passe incorrect.",
+  'auth/user-not-found':"E-mail ou mot de passe incorrect.",
+  'auth/user-disabled':"Ce compte a été désactivé.",
+  'auth/too-many-requests':"Trop de tentatives. Patientez quelques minutes ou utilisez « Mot de passe oublié ».",
+  'auth/network-request-failed':"Connexion réseau impossible. Vérifiez votre connexion internet.",
+  'auth/operation-not-allowed':"La connexion par mot de passe n'est pas encore activée. Réessayez un peu plus tard.",
+  'permission-denied':"Accès refusé. Si votre accès a été retiré, contactez la coordination du DIU."
+}[e?.code] || ("Erreur : "+(e?.message||e)));
+
+/* Inscription en cours : l'écouteur de session laisse alors la main au formulaire. */
+let REGISTERING = false;
+
+/* Reprise d'un profil créé avant le passage aux mots de passe.
+   Ces fiches avaient un identifiant aléatoire : on les recopie sous l'identifiant
+   du compte (uid), on rattache les messages, puis on supprime l'ancienne fiche. */
+async function claimLegacyProfile(fbUser){
+  const email = (fbUser.email||'').toLowerCase();
+  if(!email) return null;
+  const snap = await db.collection("participants").where("email","==",email).get();
+  const legacy = snap.docs.find(d=>d.id!==fbUser.uid);
+  if(!legacy) return null;
+  const old = legacy.data();
+  const data = {...old, email, legacyId:legacy.id};
+  await db.collection("participants").doc(fbUser.uid).set(data);
+  try{
+    for(const field of ['toId','fromId']){
+      const ms = await db.collection("messages").where(field,"==",legacy.id).get();
+      for(const m of ms.docs) await m.ref.update({[field]:fbUser.uid});
+    }
+  }catch(e){ console.warn('Rattachement des messages :', e); }
+  try{ await legacy.ref.delete(); }catch(e){ console.warn('Ancienne fiche :', e); }
+  return {id:fbUser.uid, ...data};
+}
 const sessionColor = (num) => SESSION_COLORS[num]||'s1';
 
 const sendEmailNotif = async (toEmail, toName, fromName, preview) => {
@@ -297,26 +342,48 @@ function ResourceItem({res}){
   );
 }
 
-/* ===== REGISTER COMPONENT ===== */
-function Register({onDone}){
-  const [form, setForm] = React.useState({prenom:'',nom:'',email:'',profession:'',lieu:'',promo:'2025-2026',inDir:true});
+/* ===== REGISTER COMPONENT =====
+   Deux cas : nouvel étudiant (e-mail + mot de passe + fiche), ou compte déjà
+   créé sans fiche (fbUser fourni) : seule la fiche est demandée. */
+function Register({fbUser, onDone, onBack}){
+  const [form, setForm] = React.useState({prenom:'',nom:'',email:fbUser?.email||'',pw:'',pw2:'',profession:'',lieu:'',promo:'2025-2026',inDir:true});
   const [saving, setSaving] = React.useState(false);
   const [err, setErr] = React.useState('');
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const submit = async() => {
-    if(!form.prenom||!form.nom||!form.email||!form.profession){setErr("Merci de remplir tous les champs obligatoires.");return;}
-    if(!/\S+@\S+\.\S+/.test(form.email)){setErr("Email invalide.");return;}
+    if(!form.prenom.trim()||!form.nom.trim()||!form.email.trim()||!form.profession){setErr("Merci de remplir tous les champs obligatoires.");return;}
+    if(!validEmail(form.email)){setErr("Adresse e-mail invalide.");return;}
+    if(!fbUser){
+      if(form.pw.length<MIN_PW){setErr(`Le mot de passe doit contenir au moins ${MIN_PW} caractères.`);return;}
+      if(form.pw!==form.pw2){setErr("Les deux mots de passe ne sont pas identiques.");return;}
+    }
     setSaving(true); setErr('');
+    REGISTERING = true;
     try{
-      const user = {id:genId(),prenom:form.prenom.trim(),nom:form.nom.trim(),
-        email:form.email.trim().toLowerCase(),profession:form.profession.trim(),
-        lieu:form.lieu.trim(),inDirectory:form.inDir,promo:form.promo,
-        createdAt:firebase.firestore.FieldValue.serverTimestamp()};
-      await db.collection("participants").doc(user.id).set(user);
-      saveLocalUser(user);
-      onDone(user);
-    }catch(e){setErr("Erreur: "+e.message);}
+      let u = auth.currentUser;
+      if(!u){
+        const cred = await auth.createUserWithEmailAndPassword(form.email.trim(), form.pw);
+        u = cred.user;
+      }
+      /* Une fiche existait déjà pour cet e-mail (inscription avant les mots de passe) : on la reprend. */
+      let profile = await claimLegacyProfile(u);
+      if(!profile){
+        const data = {prenom:form.prenom.trim(),nom:form.nom.trim(),
+          email:(u.email||form.email).trim().toLowerCase(),profession:form.profession.trim(),
+          lieu:form.lieu.trim(),inDirectory:form.inDir,promo:form.promo,
+          createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+        await db.collection("participants").doc(u.uid).set(data);
+        profile = {id:u.uid,...data};
+      }
+      REGISTERING = false;
+      onDone(profile);
+    }catch(e){
+      REGISTERING = false;
+      setErr(e?.code==='permission-denied'
+        ? "Inscription impossible avec cette adresse. Contactez la coordination du DIU."
+        : authErr(e));
+    }
     setSaving(false);
   };
   return (
@@ -329,7 +396,9 @@ function Register({onDone}){
       <div className="card">
         <div className="card-header">
           <h3 style={{fontSize:'1.05rem',fontWeight:700}}>Créer votre profil</h3>
-          <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:.25+'rem'}}>Une seule inscription par promotion</p>
+          <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:.25+'rem'}}>
+            {fbUser?`Compte : ${fbUser.email}. Complétez votre fiche pour accéder à la plateforme.`:'Une seule inscription par personne'}
+          </p>
         </div>
         <div className="card-body">
           {err&&<div className="alert alert-error"><span>⚠️</span>{err}</div>}
@@ -343,10 +412,22 @@ function Register({onDone}){
               <input value={form.nom} onChange={e=>upd('nom',e.target.value)} placeholder="Martin"/>
             </div>
           </div>
+          {!fbUser&&<>
           <div className="form-group">
-            <label>Email *</label>
-            <input type="email" value={form.email} onChange={e=>upd('email',e.target.value)} placeholder="marie.martin@hopital.fr"/>
+            <label>E-mail *</label>
+            <input type="email" autoComplete="email" value={form.email} onChange={e=>upd('email',e.target.value)} placeholder="marie.martin@hopital.fr"/>
           </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Mot de passe * <span style={{fontWeight:400,color:'var(--gray-400)'}}>({MIN_PW} caractères min.)</span></label>
+              <input type="password" autoComplete="new-password" value={form.pw} onChange={e=>upd('pw',e.target.value)}/>
+            </div>
+            <div className="form-group">
+              <label>Confirmer le mot de passe *</label>
+              <input type="password" autoComplete="new-password" value={form.pw2} onChange={e=>upd('pw2',e.target.value)}/>
+            </div>
+          </div>
+          </>}
           <div className="form-grid">
             <div className="form-group">
               <label>Profession *</label>
@@ -376,8 +457,8 @@ function Register({onDone}){
             <label>Promotion *</label>
             <select value={form.promo} onChange={e=>upd('promo',e.target.value)}
               style={{fontWeight:700,background:'linear-gradient(135deg,var(--s1l),#fff)',borderColor:'var(--s1)'}}>
-              <option value="2025-2026">🎓 Promo 2025-2026 (étudiants inscrits)</option>
-              <option value="2026-2027">🆕 Promo 2026-2027 (nouvelles inscriptions)</option>
+              <option value="2025-2026">🎓 Promo 2025-2026 (ancienne promotion)</option>
+              <option value="2026-2027">🆕 Promo 2026-2027 (promotion en cours)</option>
             </select>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:'.6rem',marginBottom:'1rem'}}>
@@ -387,54 +468,10 @@ function Register({onDone}){
               Figurer dans l'annuaire des participants (visible par les autres étudiants)
             </label>
           </div>
-          <button className="btn btn-primary" onClick={submit} disabled={saving} style={{width:'100%',justifyContent:'center'}}>
-            {saving?<><span className="spinner"></span> Inscription...</>:<>✓ S'inscrire — Promo {form.promo}</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ===== ACCOUNT RECOVERY COMPONENT ===== */
-function AccountRecovery({onBack, onRecover}){
-  const [email, setEmail] = React.useState('');
-  const [status, setStatus] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-
-  const recover = async () => {
-    if(!email||!/\S+@\S+\.\S+/.test(email)){setStatus({type:'error',msg:'Email invalide.'});return;}
-    setLoading(true); setStatus(null);
-    try{
-      const snap = await db.collection("participants").where("email","==",email.trim().toLowerCase()).limit(1).get();
-      if(snap.empty){setStatus({type:'error',msg:"Aucun compte trouvé pour cet email. Vérifiez l'adresse ou créez un nouveau profil."});}
-      else{
-        const user = {id:snap.docs[0].id,...snap.docs[0].data()};
-        saveLocalUser(user);
-        setStatus({type:'success',msg:`Compte retrouvé ! Bienvenue, ${user.prenom} ${user.nom} (Promo ${user.promo}).`});
-        setTimeout(()=>onRecover(user),1500);
-      }
-    }catch(e){setStatus({type:'error',msg:"Erreur : "+e.message});}
-    setLoading(false);
-  };
-  return (
-    <div style={{maxWidth:480,margin:'0 auto'}}>
-      <div className="card">
-        <div className="card-header" style={{background:'linear-gradient(135deg,#EFF6FF,#fff)',borderTop:'3px solid var(--s1)'}}>
-          <h3 style={{fontSize:'1.05rem',fontWeight:700}}>🔑 Se connecter</h3>
-          <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:'.25rem'}}>Saisissez votre email d'inscription pour restaurer votre profil</p>
-        </div>
-        <div className="card-body">
-          {status&&<div className={`alert alert-${status.type==='success'?'success':'error'}`}><span>{status.type==='success'?'✅':'⚠️'}</span>{status.msg}</div>}
-          <div className="form-group">
-            <label>Adresse email</label>
-            <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
-              placeholder="votre.email@exemple.fr" onKeyDown={e=>e.key==='Enter'&&recover()}/>
-          </div>
           <div style={{display:'flex',gap:'.75rem'}}>
-            <button className="btn btn-secondary" onClick={onBack} style={{flex:1,justifyContent:'center'}}>← Retour</button>
-            <button className="btn btn-primary" onClick={recover} disabled={loading} style={{flex:2,justifyContent:'center'}}>
-              {loading?<><span className="spinner"></span> Connexion...</>:'🔍 Se connecter'}
+            <button className="btn btn-secondary" onClick={onBack} disabled={saving} style={{flex:1,justifyContent:'center'}}>{fbUser?'↩ Quitter':'← Retour'}</button>
+            <button className="btn btn-primary" onClick={submit} disabled={saving} style={{flex:2,justifyContent:'center'}}>
+              {saving?<><span className="spinner"></span> Inscription...</>:<>✓ S'inscrire — Promo {form.promo}</>}
             </button>
           </div>
         </div>
@@ -443,10 +480,89 @@ function AccountRecovery({onBack, onRecover}){
   );
 }
 
+/* ===== LOGIN COMPONENT =====
+   Modes : connexion, mot de passe oublié, première connexion (profil créé
+   avant la mise en place des mots de passe). */
+function Login({onBack}){
+  const [mode, setMode] = React.useState('login');
+  const [email, setEmail] = React.useState('');
+  const [pw, setPw] = React.useState('');
+  const [pw2, setPw2] = React.useState('');
+  const [status, setStatus] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const go = (m) => {setMode(m); setStatus(null); setPw(''); setPw2('');};
+
+  const run = async () => {
+    if(!validEmail(email)){setStatus({type:'error',msg:'Adresse e-mail invalide.'});return;}
+    setLoading(true); setStatus(null);
+    try{
+      if(mode==='login'){
+        if(!pw){setStatus({type:'error',msg:'Saisissez votre mot de passe.'});setLoading(false);return;}
+        await auth.signInWithEmailAndPassword(email.trim(), pw);
+        /* la suite (chargement du profil) est gérée par l'écouteur de session */
+      } else if(mode==='reset'){
+        try{ await auth.sendPasswordResetEmail(email.trim()); }
+        catch(e){ if(e?.code!=='auth/user-not-found') throw e; }
+        setStatus({type:'success',msg:"Si un compte existe pour cette adresse, un e-mail de réinitialisation vient d'être envoyé. Pensez à vérifier les courriers indésirables."});
+      } else {
+        if(pw.length<MIN_PW){setStatus({type:'error',msg:`Le mot de passe doit contenir au moins ${MIN_PW} caractères.`});setLoading(false);return;}
+        if(pw!==pw2){setStatus({type:'error',msg:'Les deux mots de passe ne sont pas identiques.'});setLoading(false);return;}
+        await auth.createUserWithEmailAndPassword(email.trim(), pw);
+      }
+    }catch(e){ setStatus({type:'error',msg:authErr(e)}); }
+    setLoading(false);
+  };
+
+  const titles = {login:'🔑 Se connecter', reset:'🔁 Mot de passe oublié', first:'🆕 Première connexion'};
+  const subtitles = {
+    login:'Saisissez votre e-mail et votre mot de passe.',
+    reset:'Saisissez votre e-mail : vous recevrez un lien pour choisir un nouveau mot de passe.',
+    first:"Vous vous êtes inscrit(e) avant la mise en place des mots de passe : choisissez-en un. Votre fiche sera retrouvée à partir de votre e-mail."
+  };
+  const btn = {login:'Se connecter', reset:'Envoyer le lien', first:'Créer mon mot de passe'};
+  return (
+    <div style={{maxWidth:480,margin:'0 auto'}}>
+      <div className="card">
+        <div className="card-header" style={{background:'linear-gradient(135deg,#EFF6FF,#fff)',borderTop:'3px solid var(--s1)'}}>
+          <h3 style={{fontSize:'1.05rem',fontWeight:700}}>{titles[mode]}</h3>
+          <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:'.25rem'}}>{subtitles[mode]}</p>
+        </div>
+        <div className="card-body">
+          {status&&<div className={`alert alert-${status.type==='success'?'success':'error'}`}><span>{status.type==='success'?'✅':'⚠️'}</span>{status.msg}</div>}
+          <div className="form-group">
+            <label>Adresse e-mail</label>
+            <input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}
+              placeholder="votre.email@exemple.fr" onKeyDown={e=>e.key==='Enter'&&run()}/>
+          </div>
+          {mode!=='reset'&&<div className="form-group">
+            <label>{mode==='first'?`Nouveau mot de passe (${MIN_PW} caractères min.)`:'Mot de passe'}</label>
+            <input type="password" autoComplete={mode==='first'?'new-password':'current-password'} value={pw}
+              onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&run()}/>
+          </div>}
+          {mode==='first'&&<div className="form-group">
+            <label>Confirmer le mot de passe</label>
+            <input type="password" autoComplete="new-password" value={pw2} onChange={e=>setPw2(e.target.value)} onKeyDown={e=>e.key==='Enter'&&run()}/>
+          </div>}
+          <div style={{display:'flex',gap:'.75rem'}}>
+            <button className="btn btn-secondary" onClick={mode==='login'?onBack:()=>go('login')} style={{flex:1,justifyContent:'center'}}>← Retour</button>
+            <button className="btn btn-primary" onClick={run} disabled={loading} style={{flex:2,justifyContent:'center'}}>
+              {loading?<><span className="spinner"></span> Patientez...</>:btn[mode]}
+            </button>
+          </div>
+          {mode==='login'&&<div style={{marginTop:'1rem',display:'flex',flexDirection:'column',gap:'.4rem',fontSize:'.84rem'}}>
+            <a href="#" onClick={e=>{e.preventDefault();go('reset');}} style={{color:'var(--primary)'}}>Mot de passe oublié ?</a>
+            <a href="#" onClick={e=>{e.preventDefault();go('first');}} style={{color:'var(--primary)'}}>Inscrit(e) avant le 28 octobre 2026, sans mot de passe ? Créez-le ici.</a>
+          </div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ===== WELCOME SCREEN ===== */
-function Welcome({onRegister, onLogin}){
-  const [showRecovery, setShowRecovery] = React.useState(false);
-  if(showRecovery) return <AccountRecovery onBack={()=>setShowRecovery(false)} onRecover={onLogin}/>;
+function Welcome({onRegister}){
+  const [showLogin, setShowLogin] = React.useState(false);
+  if(showLogin) return <Login onBack={()=>setShowLogin(false)}/>;
   return (
     <div style={{maxWidth:600,margin:'0 auto'}}>
       <div className="welcome-hero">
@@ -454,7 +570,7 @@ function Welcome({onRegister, onLogin}){
         <h2>DIU TDAH</h2>
         <p>Université Paris-Saclay — Plateforme pédagogique &amp; questionnaire de satisfaction</p>
         <div style={{display:'flex',gap:.75+'rem',justifyContent:'center',flexWrap:'wrap'}}>
-          <button className="btn" onClick={()=>setShowRecovery(true)}
+          <button className="btn" onClick={()=>setShowLogin(true)}
             style={{background:'#fff',color:'var(--primary)',fontWeight:700,boxShadow:'0 4px 15px rgba(0,0,0,.2)'}}>
             🔑 Se connecter
           </button>
@@ -483,7 +599,7 @@ function Welcome({onRegister, onLogin}){
 
 /* ===== QUESTIONNAIRE COMPONENT ===== */
 function Questionnaire({user}){
-  const alreadyDone = hasSubmitted(user.promo);
+  const alreadyDone = hasSubmitted(user.promo) || !!(user.evalSubmitted&&user.evalSubmitted[user.promo]);
   const [submitted, setSubmitted] = React.useState(alreadyDone);
   const [general, setGeneral] = React.useState({org:0,support:0,inter:0,global:0});
   const [courses, setCourses] = React.useState({});
@@ -502,12 +618,15 @@ function Questionnaire({user}){
     if(!general.global){setErr("Merci de donner au moins une note globale.");return;}
     setSaving(true); setErr('');
     try{
+      /* Évaluation anonyme : la réponse ne contient aucun identifiant.
+         Seul le fait d'avoir répondu est noté sur la fiche du participant. */
       const data = {
-        userId:user.id, promo:user.promo,
+        promo:user.promo,
         general, courses, texts,
         submittedAt:firebase.firestore.FieldValue.serverTimestamp()
       };
       await db.collection("responses").add(data);
+      try{ await db.collection("participants").doc(user.id).update({[`evalSubmitted.${user.promo}`]:true}); }catch(e){ console.warn(e); }
       markSubmitted(user.promo);
       setSubmitted(true);
     }catch(e){setErr("Erreur: "+e.message);}
@@ -959,9 +1078,10 @@ function Resources({user}){
 }
 
 /* ===== ADMIN DASHBOARD COMPONENT ===== */
-function AdminDash(){
+function AdminDash({me}){
   const [tab, setTab] = React.useState('overview');
   const [participants, setParticipants] = React.useState([]);
+  const [blocked, setBlocked] = React.useState([]);
   const [responses, setResponses] = React.useState([]);
   const [summaries, setSummaries] = React.useState({...DEFAULT_SUMMARIES});
   const [editSummary, setEditSummary] = React.useState(null);
@@ -975,14 +1095,20 @@ function AdminDash(){
   const chartInst = React.useRef(null);
 
   React.useEffect(()=>{
-    const u1=db.collection("participants").orderBy("createdAt","desc").onSnapshot(s=>setParticipants(s.docs.map(d=>({id:d.id,...d.data()}))));
-    const u2=db.collection("responses").orderBy("submittedAt","desc").onSnapshot(s=>setResponses(s.docs.map(d=>({id:d.id,...d.data()}))));
+    const onErr = err=>console.error('Admin :', err);
+    const u1=db.collection("participants").onSnapshot(s=>{
+      const rows=s.docs.map(d=>({id:d.id,...d.data()}));
+      rows.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+      setParticipants(rows);
+    }, onErr);
+    const u2=db.collection("responses").orderBy("submittedAt","desc").onSnapshot(s=>setResponses(s.docs.map(d=>({id:d.id,...d.data()}))), onErr);
+    const u3=db.collection("blocked").onSnapshot(s=>setBlocked(s.docs.map(d=>({id:d.id,...d.data()}))), onErr);
     db.collection("summaries").get().then(s=>{
       const m={...DEFAULT_SUMMARIES};
       s.docs.forEach(d=>{m[d.id]=d.data().text||m[d.id];});
       setSummaries(m);
     });
-    return()=>{u1();u2();};
+    return()=>{u1();u2();u3();};
   },[]);
 
   React.useEffect(()=>{
@@ -1009,6 +1135,24 @@ function AdminDash(){
       options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{min:0,max:5}}}
     });
   },[tab,responses]);
+
+  /* Suppression : la fiche est effacée et l'e-mail est bloqué (pas de réinscription).
+     Les messages déjà échangés sont conservés. */
+  const removeParticipant = async(p) => {
+    const email=(p.email||'').trim().toLowerCase();
+    if(!email){window.alert("Ce participant n'a pas d'e-mail enregistré.");return;}
+    if(!window.confirm(`Supprimer ${p.prenom} ${p.nom} (${email}) ?\n\nSa fiche disparaît de l'annuaire et son accès à la plateforme est retiré. Ses messages déjà échangés sont conservés.`)) return;
+    try{
+      await db.collection("blocked").doc(email).set({prenom:p.prenom||'',nom:p.nom||'',promo:p.promo||'',
+        blockedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      await db.collection("participants").doc(p.id).delete();
+    }catch(e){ window.alert("Suppression impossible : "+e.message); }
+  };
+  const restoreAccess = async(b) => {
+    if(!window.confirm(`Rétablir l'accès de ${b.prenom} ${b.nom} (${b.id}) ?\n\nLa personne pourra se reconnecter et devra recompléter sa fiche.`)) return;
+    try{ await db.collection("blocked").doc(b.id).delete(); }
+    catch(e){ window.alert("Opération impossible : "+e.message); }
+  };
 
   const sendBroadcast = async() => {
     if(!broadcast.body.trim()||!broadcast.subject.trim()) return;
@@ -1121,11 +1265,26 @@ function AdminDash(){
                 <div style={{fontWeight:700}}>{p.prenom} {p.nom}</div>
                 <div style={{fontSize:'.8rem',color:'var(--gray-500)'}}>{p.email} — {p.profession}</div>
                 <span className="chip" style={{marginTop:'.25rem'}}>Promo {p.promo}</span>
-                {responses.some(r=>r.userId===p.id)&&<span className="chip" style={{background:'#DCFCE7',color:'#166534',marginLeft:'.25rem'}}>✓ Évaluation soumise</span>}
+                {p.evalSubmitted&&p.evalSubmitted[p.promo]&&<span className="chip" style={{background:'#DCFCE7',color:'#166534',marginLeft:'.25rem'}}>✓ Évaluation soumise</span>}
               </div>
-              <span style={{fontSize:'.78rem',color:'var(--gray-400)'}}>{p.inDirectory?'📒 Annuaire':'🔒 Privé'}</span>
+              <div style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
+                <span style={{fontSize:'.78rem',color:'var(--gray-400)'}}>{p.inDirectory?'📒 Annuaire':'🔒 Privé'}</span>
+                {p.id!==me?.id&&<button className="btn btn-sm btn-danger" onClick={()=>removeParticipant(p)} title="Supprimer ce participant">🗑 Supprimer</button>}
+              </div>
             </div>
           ))}
+          {blocked.length>0&&<div style={{marginTop:'1.5rem'}}>
+            <h3 style={{fontWeight:700,fontSize:'.95rem',marginBottom:'.5rem'}}>Accès retirés ({blocked.length})</h3>
+            {blocked.map(b=>(
+              <div key={b.id} className="participant-card" style={{opacity:.8}}>
+                <div>
+                  <div style={{fontWeight:600}}>{b.prenom} {b.nom}</div>
+                  <div style={{fontSize:'.8rem',color:'var(--gray-500)'}}>{b.id}{b.promo?` — Promo ${b.promo}`:''}</div>
+                </div>
+                <button className="btn btn-sm btn-secondary" onClick={()=>restoreAccess(b)} title="Permettre à nouveau l'inscription">↺ Rétablir</button>
+              </div>
+            ))}
+          </div>}
         </div>
       )}
 
@@ -1282,75 +1441,92 @@ function AdminDash(){
 /* ===== APP_URL CONSTANT (configure after deployment) ===== */
 const APP_URL = "https://olivierbonnot-jpg.github.io/du-tdah/";
 
-/* ===== ADMIN LOGIN ===== */
-function AdminLogin({onLogin}){
-  const [pw, setPw] = React.useState('');
-  const [err, setErr] = React.useState(false);
-  const check = () => {
-    if(pw===ADMIN_PASSWORD) onLogin();
-    else{setErr(true);setTimeout(()=>setErr(false),2000);}
-  };
-  return (
-    <div style={{maxWidth:380,margin:'0 auto'}}>
-      <div className="card">
-        <div className="card-header" style={{background:'linear-gradient(135deg,#FFFBEB,#fff)',borderTop:'3px solid var(--s4)'}}>
-          <h3 style={{fontWeight:700}}>🔐 Accès administrateur</h3>
-        </div>
-        <div className="card-body">
-          {err&&<div className="alert alert-error"><span>⚠️</span>Mot de passe incorrect.</div>}
-          <div className="form-group">
-            <label>Mot de passe admin</label>
-            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="••••"/>
-          </div>
-          <button className="btn btn-primary" onClick={check} style={{width:'100%',justifyContent:'center'}}>→ Entrer</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ===== MAIN APP ===== */
+/* ===== MAIN APP =====
+   La session est celle de Firebase Auth (e-mail + mot de passe).
+   Écrans : loading, welcome, register, blocked, error, home. */
 function App(){
-  const [user, setUser] = React.useState(getLocalUser);
-  const [screen, setScreen] = React.useState(user?'home':'welcome');
+  const [fbUser, setFbUser] = React.useState(null);
+  const [user, setUser] = React.useState(null);
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [screen, setScreen] = React.useState('loading');
   const [tab, setTab] = React.useState('resources');
-  const [adminAuth, setAdminAuth] = React.useState(false);
   const [unread, setUnread] = React.useState(0);
+  const [errMsg, setErrMsg] = React.useState('');
+
+  React.useEffect(()=>auth.onAuthStateChanged(async u=>{
+    setFbUser(u||null);
+    if(!u){ setUser(null); setIsAdmin(false); setScreen('welcome'); return; }
+    if(REGISTERING) return;              // le formulaire d'inscription termine lui-même
+    try{
+      const email=(u.email||'').toLowerCase();
+      const [adm, blk] = await Promise.all([
+        db.collection("admins").doc(u.uid).get().catch(()=>null),
+        db.collection("blocked").doc(email).get().catch(()=>null)
+      ]);
+      setIsAdmin(!!(adm&&adm.exists));
+      if(blk&&blk.exists){ setScreen('blocked'); return; }
+      const snap = await db.collection("participants").doc(u.uid).get();
+      const profile = snap.exists ? {id:u.uid,...snap.data()} : await claimLegacyProfile(u);
+      if(profile){ setUser(profile); setScreen('home'); }
+      else setScreen('register');        // compte créé, fiche à compléter
+    }catch(e){
+      console.error(e);
+      setErrMsg(authErr(e)); setScreen('error');
+    }
+  }),[]);
 
   React.useEffect(()=>{
     if(!user) return;
     const q = db.collection("messages").where("toId","==",user.id).where("read","==",false);
-    return q.onSnapshot(s=>setUnread(s.size));
+    return q.onSnapshot(s=>setUnread(s.size), err=>console.error('Non lus :', err));
   },[user]);
 
-  const logout = () => {
-    localStorage.removeItem("du_u");
-    setUser(null);setScreen('welcome');setAdminAuth(false);setTab('resources');
+  const logout = async () => {
+    try{ await auth.signOut(); }catch(e){}
+    setUser(null); setIsAdmin(false); setTab('resources'); setScreen('welcome');
   };
-
   const handleRegister = (u) => {setUser(u);setScreen('home');};
-  const handleRecover = (u) => {setUser(u);setScreen('home');};
+
+  const Header = ({badge}) => (
+    <div className="app-header"><span style={{fontSize:'1.6rem'}}>🧠</span><h1>DIU TDAH</h1>{badge&&<span className="badge">{badge}</span>}</div>
+  );
+
+  if(screen==='loading') return (
+    <div><Header badge="Université Paris-Saclay"/>
+      <div className="container" style={{textAlign:'center',padding:'3rem',color:'var(--gray-500)'}}>Chargement...</div></div>
+  );
 
   if(screen==='welcome') return (
-    <div>
-      <div className="app-header"><span style={{fontSize:'1.6rem'}}>🧠</span><h1>DIU TDAH</h1><span className="badge">Université Paris-Saclay</span></div>
-      <div className="container"><Welcome onRegister={()=>setScreen('register')} onLogin={handleRecover}/></div>
-    </div>
+    <div><Header badge="Université Paris-Saclay"/>
+      <div className="container"><Welcome onRegister={()=>setScreen('register')}/></div></div>
   );
 
   if(screen==='register') return (
-    <div>
-      <div className="app-header"><span style={{fontSize:'1.6rem'}}>🧠</span><h1>DIU TDAH</h1><span className="badge">Inscription</span></div>
-      <div className="container"><Register onDone={handleRegister}/></div>
-    </div>
+    <div><Header badge="Inscription"/>
+      <div className="container"><Register fbUser={fbUser} onDone={handleRegister}
+        onBack={fbUser?logout:()=>setScreen('welcome')}/></div></div>
   );
 
+  if(screen==='blocked'||screen==='error') return (
+    <div><Header badge="Université Paris-Saclay"/>
+      <div className="container"><div className="card" style={{maxWidth:480,margin:'0 auto'}}><div className="card-body" style={{textAlign:'center',padding:'2rem'}}>
+        <div style={{fontSize:'2.5rem',marginBottom:'.75rem'}}>{screen==='blocked'?'🔒':'⚠️'}</div>
+        <p style={{color:'var(--gray-700)',lineHeight:1.6}}>
+          {screen==='blocked'
+            ? "Votre accès à la plateforme du DIU TDAH a été retiré. Si vous pensez qu'il s'agit d'une erreur, contactez la coordination du diplôme."
+            : errMsg}
+        </p>
+        <button className="btn btn-secondary" onClick={logout} style={{marginTop:'1rem'}}>↩ Se déconnecter</button>
+      </div></div></div></div>
+  );
+
+  const me = {...user, isAdmin};
   const navItems = [
     {id:'questionnaire',label:'📝 Évaluation'},
     {id:'resources',label:'📚 Ressources'},
     {id:'annuaire',label:'👥 Annuaire'},
     {id:'messages',label:unread>0?`✉️ Messages (${unread})`:'✉️ Messages'},
-    {id:'admin',label:'⚙️ Admin'}
+    ...(isAdmin?[{id:'admin',label:'⚙️ Admin'}]:[])
   ];
 
   return (
@@ -1363,7 +1539,7 @@ function App(){
         <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
           <div style={{background:'rgba(255,255,255,.2)',borderRadius:'.5rem',padding:'.3rem .7rem',backdropFilter:'blur(6px)'}}>
             <div style={{color:'#fff',fontSize:'.78rem',fontWeight:700,lineHeight:1}}>{user.prenom} {user.nom}</div>
-            <div style={{color:'rgba(255,255,255,.75)',fontSize:'.68rem'}}>Promo {user.promo}</div>
+            <div style={{color:'rgba(255,255,255,.75)',fontSize:'.68rem'}}>Promo {user.promo}{isAdmin?' · admin':''}</div>
           </div>
           <button onClick={logout} className="btn btn-sm" style={{background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)'}}>
             ↩ Quitter
@@ -1376,11 +1552,11 @@ function App(){
         ))}
       </nav>
       <div className="container">
-        {tab==='questionnaire'&&<Questionnaire user={user}/>}
-        {tab==='resources'&&<Resources user={user}/>}
-        {tab==='annuaire'&&<Annuaire user={user}/>}
-        {tab==='messages'&&<Messaging user={user}/>}
-        {tab==='admin'&&(adminAuth?<AdminDash/>:<AdminLogin onLogin={()=>setAdminAuth(true)}/>)}
+        {tab==='questionnaire'&&<Questionnaire user={me}/>}
+        {tab==='resources'&&<Resources user={me}/>}
+        {tab==='annuaire'&&<Annuaire user={me}/>}
+        {tab==='messages'&&<Messaging user={me}/>}
+        {tab==='admin'&&isAdmin&&<AdminDash me={me}/>}
       </div>
     </div>
   );

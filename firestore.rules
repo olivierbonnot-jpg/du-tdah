@@ -1,0 +1,88 @@
+rules_version = '2';
+
+// Règles Firestore — plateforme DIU TDAH (projet du-tdah-ups)
+// À coller dans Console Firebase > Firestore Database > Règles, puis « Publier ».
+// Principe : rien n'est lisible sans compte ; un participant ne voit que
+// l'annuaire (fiches publiées), ses propres messages et les ressources ;
+// l'administration est réservée aux comptes listés dans la collection « admins ».
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn()      { return request.auth != null; }
+    function myEmail()       { return request.auth.token.email.lower(); }
+    function isAdmin()       { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function isParticipant() { return signedIn() && exists(/databases/$(database)/documents/participants/$(request.auth.uid)); }
+    function isBlocked()     { return exists(/databases/$(database)/documents/blocked/$(myEmail())); }
+    function myLegacyId()    { return get(/databases/$(database)/documents/participants/$(request.auth.uid)).data.get('legacyId', '__none__'); }
+
+    // Comptes administrateurs : lecture de son propre statut uniquement, aucune écriture depuis l'application.
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Accès retirés (identifiant = e-mail).
+    match /blocked/{email} {
+      allow get: if signedIn() && myEmail() == email;
+      allow read, write: if isAdmin();
+    }
+
+    match /participants/{pid} {
+      allow get: if signedIn() && (
+                    pid == request.auth.uid
+                    || isAdmin()
+                    || resource.data.email == myEmail()
+                    || (isParticipant() && resource.data.inDirectory == true));
+      allow list: if isAdmin()
+                  || (signedIn() && resource.data.email == myEmail())
+                  || (isParticipant() && resource.data.inDirectory == true);
+      allow create: if signedIn() && pid == request.auth.uid && !isBlocked()
+                    && request.resource.data.email == myEmail();
+      allow update: if isAdmin()
+                    || (signedIn() && pid == request.auth.uid
+                        && request.resource.data.email == resource.data.email);
+      // Suppression : l'admin, ou le titulaire de l'e-mail qui reprend une ancienne fiche.
+      allow delete: if isAdmin()
+                    || (signedIn() && pid != request.auth.uid && resource.data.email == myEmail());
+    }
+
+    match /messages/{mid} {
+      allow read: if isAdmin()
+                  || (isParticipant() && (
+                       resource.data.toId == request.auth.uid
+                       || resource.data.fromId == request.auth.uid
+                       || resource.data.toId == myLegacyId()
+                       || resource.data.fromId == myLegacyId()));
+      allow create: if isAdmin()
+                    || (isParticipant() && request.resource.data.fromId == request.auth.uid);
+      allow update: if isAdmin()
+                    // le destinataire marque le message comme lu
+                    || (isParticipant() && resource.data.toId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']))
+                    // rattachement des messages d'une ancienne fiche au nouveau compte
+                    || (isParticipant()
+                        && (resource.data.toId == myLegacyId() || resource.data.fromId == myLegacyId())
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['toId','fromId'])
+                        && (request.resource.data.toId == resource.data.toId || request.resource.data.toId == request.auth.uid)
+                        && (request.resource.data.fromId == resource.data.fromId || request.resource.data.fromId == request.auth.uid));
+      allow delete: if isAdmin();
+    }
+
+    // Évaluations : anonymes (aucun identifiant), lisibles par l'admin seulement.
+    match /responses/{rid} {
+      allow create: if isParticipant() && !('userId' in request.resource.data);
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /resources/{rid} {
+      allow read: if isParticipant() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /summaries/{sid} {
+      allow read, write: if isAdmin();
+    }
+
+    // Tout le reste est fermé par défaut.
+  }
+}
