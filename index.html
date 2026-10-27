@@ -1119,14 +1119,22 @@ function AdminDash(){
     setEditSummary(null);
   };
 
+  const [resError, setResError] = React.useState(null);
   const addResource = async() => {
     const effectiveCourseId = resForm.courseId==='__custom__' ? resForm.customCourseId.trim() : resForm.courseId;
     if(!effectiveCourseId||!resForm.label||!resForm.url) return;
     setAddingRes(true);
-    const {customCourseId,...rest} = resForm;
-    await db.collection("resources").add({...rest,courseId:effectiveCourseId,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-    setResForm(f=>({...f,label:'',url:'',customCourseId:''}));
-    setAddingRes(false);
+    setResError(null);
+    try {
+      const {customCourseId,...rest} = resForm;
+      await db.collection("resources").add({...rest,courseId:effectiveCourseId,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      setResForm(f=>({...f,label:'',url:'',customCourseId:''}));
+    } catch(e) {
+      console.error('addResource error:', e);
+      setResError('Erreur lors de l\'ajout : ' + (e.message||e.code||'inconnue'));
+    } finally {
+      setAddingRes(false);
+    }
   };
 
   const exportPDF = () => {
@@ -1272,6 +1280,7 @@ function AdminDash(){
               <button className="btn btn-green" onClick={addResource} disabled={addingRes}>
                 {addingRes?<span className="spinner"></span>:'+ Ajouter la ressource'}
               </button>
+              {resError&&<div style={{marginTop:'.5rem',color:'#dc2626',fontSize:'.85rem',background:'#fef2f2',padding:'.5rem .75rem',borderRadius:'.4rem',border:'1px solid #fecaca'}}>{resError}</div>}
             </div>
           </div>
         </div>
