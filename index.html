@@ -123,6 +123,7 @@ const EMAILJS_CONFIG = {
 };
 const PROMOS = ["2025-2026","2026-2027"];
 const UNIV = "Université Paris-Saclay & Paris Cité";
+const PROFESSIONS = ['Pédopsychiatre','Psychiatre','Pédiatre','Neurologue','Médecin généraliste','Neuropédiatre','Psychologue','Orthophoniste','Neuropsychologue','Infirmier(ère)','Autre professionnel de santé','Chercheur','Étudiant','Autre'];
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
@@ -452,19 +453,7 @@ function Register({fbUser, onDone, onBack}){
               <label>Profession *</label>
               <select value={form.profession} onChange={e=>upd('profession',e.target.value)}>
                 <option value="">Sélectionner...</option>
-                <option>Pédopsychiatre</option>
-                <option>Psychiatre</option>
-                <option>Pédiatre</option>
-                <option>Neurologue</option>
-                <option>Médecin généraliste</option>
-                <option>Neuropédiatre</option>
-                <option>Psychologue</option>
-                <option>Orthophoniste</option>
-                <option>Neuropsychologue</option>
-                <option>Infirmier(ère)</option>
-                <option>Autre professionnel de santé</option>
-                <option>Chercheur</option>
-                <option>Étudiant</option>
+                {PROFESSIONS.map(o=><option key={o}>{o}</option>)}
               </select>
             </div>
             <div className="form-group">
@@ -1478,7 +1467,6 @@ function ProfileEdit({user, onSaved}){
   const [saving, setSaving] = React.useState(false);
   const [status, setStatus] = React.useState(null);
   const upd = (k,v) => {setForm(f=>({...f,[k]:v})); setStatus(null);};
-  const PROFESSIONS = ['Pédopsychiatre','Psychiatre','Pédiatre','Neurologue','Médecin généraliste','Neuropédiatre','Psychologue','Orthophoniste','Neuropsychologue','Infirmier(ère)','Autre professionnel de santé','Chercheur','Étudiant'];
 
   const save = async() => {
     if(!form.prenom.trim()||!form.nom.trim()||!form.profession){setStatus({type:'error',msg:'Prénom, nom et profession sont obligatoires.'});return;}
