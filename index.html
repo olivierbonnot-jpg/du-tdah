@@ -289,7 +289,8 @@ async function claimLegacyProfile(fbUser){
   const legacy = snap.docs.find(d=>d.id!==fbUser.uid);
   if(!legacy) return null;
   const old = legacy.data();
-  const data = {...old, email, legacyId:legacy.id};
+  const {id:_ancienId, ...rest} = old;   // l'ancien format stockait un champ « id » : on ne le recopie pas
+  const data = {...rest, email, legacyId:legacy.id};
   await db.collection("participants").doc(fbUser.uid).set(data);
   try{
     for(const field of ['toId','fromId']){
@@ -298,7 +299,7 @@ async function claimLegacyProfile(fbUser){
     }
   }catch(e){ console.warn('Rattachement des messages :', e); }
   try{ await legacy.ref.delete(); }catch(e){ console.warn('Ancienne fiche :', e); }
-  return {id:fbUser.uid, ...data};
+  return {...data, id:fbUser.uid};
 }
 
 /* Fin de reprise, relancée à chaque connexion tant que l'ancienne fiche existe
@@ -392,7 +393,7 @@ function Register({fbUser, onDone, onBack}){
           lieu:form.lieu.trim(),inDirectory:form.inDir,promo:form.promo,
           createdAt:firebase.firestore.FieldValue.serverTimestamp()};
         await db.collection("participants").doc(u.uid).set(data);
-        profile = {id:u.uid,...data};
+        profile = {...data, id:u.uid};
       }
       REGISTERING = false;
       onDone(profile);
@@ -786,7 +787,7 @@ function Annuaire({user}){
     setSending(true);
     try{
       await db.collection("messages").add({
-        fromId:user.id, fromName:`${user.prenom} ${user.nom}`,
+        fromId:user.id, fromName:`${user.prenom} ${user.nom}`, fromEmail:user.email||'',
         toId:to.id, toName:`${to.prenom} ${to.nom}`,
         text:msgText.trim(),
         read:false,
@@ -909,7 +910,10 @@ function Messaging({user}){
       setMsgs(all);
     };
     const onErr = err=>console.error('Conversation :', err);
-    const unsub1 = q.onSnapshot(s=>{u1=s.docs.map(d=>({id:d.id,...d.data()}));merge();}, onErr);
+    const unsub1 = q.onSnapshot(s=>{
+      u1=s.docs.map(d=>({id:d.id,...d.data()}));merge();
+      s.docs.filter(d=>d.data().read===false).forEach(d=>d.ref.update({read:true}).catch(e=>console.warn('Lu :',e)));
+    }, onErr);
     const unsub2 = q2.onSnapshot(s=>{u2=s.docs.map(d=>({id:d.id,...d.data()}));merge();}, onErr);
     return()=>{unsub1();unsub2();};
   },[active]);
@@ -918,13 +922,20 @@ function Messaging({user}){
     if(!reply.trim()||!active) return;
     setSending(true);
     try{
+      /* Une diffusion de l'admin a pour expéditeur « admin » : la réponse va au compte administrateur. */
+      const replyTo = active.fromId==='admin' ? ADMIN_UIDS[0] : active.fromId;
+      let toEmail = active.fromEmail || '';
+      if(!toEmail){
+        try{ const s=await db.collection("participants").doc(replyTo).get(); toEmail = s.exists ? (s.data().email||'') : ''; }
+        catch(e){ /* fiche non visible : pas de notification par e-mail */ }
+      }
       await db.collection("messages").add({
-        fromId:user.id,fromName:`${user.prenom} ${user.nom}`,
-        toId:active.fromId,toName:active.fromName,
+        fromId:user.id,fromName:`${user.prenom} ${user.nom}`,fromEmail:user.email||'',
+        toId:replyTo,toName:active.fromName,
         text:reply.trim(),read:false,
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       });
-      await sendEmailNotif(active.fromEmail,active.fromName,`${user.prenom} ${user.nom}`,reply.trim());
+      await sendEmailNotif(toEmail,active.fromName,`${user.prenom} ${user.nom}`,reply.trim());
       setReply('');
     }catch(e){console.error(e);}
     setSending(false);
@@ -1484,7 +1495,8 @@ function App(){
       setIsAdmin(ADMIN_UIDS.includes(u.uid) || !!(adm&&adm.exists));
       if(blk&&blk.exists){ setScreen('blocked'); return; }
       const snap = await db.collection("participants").doc(u.uid).get();
-      const profile = snap.exists ? {id:u.uid,...snap.data()} : await claimLegacyProfile(u);
+      /* l'identifiant est toujours celui du compte (un ancien champ « id » ne doit pas l'écraser) */
+      const profile = snap.exists ? {...snap.data(), id:u.uid} : await claimLegacyProfile(u);
       if(snap.exists && profile.legacyId) finishLegacyCleanup(u, profile.legacyId);
       if(profile){ setUser(profile); setScreen('home'); }
       else setScreen('register');        // compte créé, fiche à compléter
