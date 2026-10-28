@@ -1470,6 +1470,79 @@ function AdminDash({me}){
 /* ===== APP_URL CONSTANT (configure after deployment) ===== */
 const APP_URL = "https://olivierbonnot-jpg.github.io/du-tdah/";
 
+/* ===== MON PROFIL =====
+   Le participant corrige lui-même sa fiche. L'e-mail (identifiant de connexion)
+   et la promotion ne sont pas modifiables ici ; s'adresser à la coordination. */
+function ProfileEdit({user, onSaved}){
+  const [form, setForm] = React.useState({prenom:user.prenom||'',nom:user.nom||'',profession:user.profession||'',lieu:user.lieu||'',inDir:user.inDirectory!==false});
+  const [saving, setSaving] = React.useState(false);
+  const [status, setStatus] = React.useState(null);
+  const upd = (k,v) => {setForm(f=>({...f,[k]:v})); setStatus(null);};
+  const PROFESSIONS = ['Pédopsychiatre','Psychiatre','Pédiatre','Neurologue','Médecin généraliste','Neuropédiatre','Psychologue','Orthophoniste','Neuropsychologue','Infirmier(ère)','Autre professionnel de santé','Chercheur','Étudiant'];
+
+  const save = async() => {
+    if(!form.prenom.trim()||!form.nom.trim()||!form.profession){setStatus({type:'error',msg:'Prénom, nom et profession sont obligatoires.'});return;}
+    setSaving(true); setStatus(null);
+    try{
+      const changes = {prenom:form.prenom.trim(),nom:form.nom.trim(),profession:form.profession,lieu:form.lieu.trim(),inDirectory:form.inDir};
+      await db.collection("participants").doc(user.id).update(changes);
+      onSaved(changes);
+      setStatus({type:'success',msg:'Votre profil a été mis à jour.'});
+    }catch(e){ setStatus({type:'error',msg:authErr(e)}); }
+    setSaving(false);
+  };
+  const resetPw = async() => {
+    try{
+      await auth.sendPasswordResetEmail(user.email);
+      setStatus({type:'success',msg:`Un e-mail pour changer votre mot de passe vient d'être envoyé à ${user.email}. Pensez à vérifier les courriers indésirables.`});
+    }catch(e){ setStatus({type:'error',msg:authErr(e)}); }
+  };
+
+  return (
+    <div style={{maxWidth:560,margin:'0 auto'}}>
+      <div className="card">
+        <div className="card-header">
+          <h3 style={{fontSize:'1.05rem',fontWeight:700}}>👤 Mon profil</h3>
+          <p style={{fontSize:'.82rem',color:'var(--gray-500)',marginTop:'.25rem'}}>Ces informations apparaissent dans l'annuaire si vous avez choisi d'y figurer.</p>
+        </div>
+        <div className="card-body">
+          {status&&<div className={`alert alert-${status.type==='success'?'success':'error'}`}><span>{status.type==='success'?'✅':'⚠️'}</span>{status.msg}</div>}
+          <div className="form-grid">
+            <div className="form-group"><label>Prénom *</label><input value={form.prenom} onChange={e=>upd('prenom',e.target.value)}/></div>
+            <div className="form-group"><label>Nom *</label><input value={form.nom} onChange={e=>upd('nom',e.target.value)}/></div>
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Profession *</label>
+              <select value={form.profession} onChange={e=>upd('profession',e.target.value)}>
+                <option value="">Sélectionner...</option>
+                {[...new Set([...PROFESSIONS, ...(form.profession?[form.profession]:[])])].map(o=><option key={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label>Lieu d'exercice</label><input value={form.lieu} onChange={e=>upd('lieu',e.target.value)} placeholder="Ex. : libéral, Versailles (78)"/></div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:'.6rem',marginBottom:'1rem'}}>
+            <input type="checkbox" id="inDirEdit" checked={form.inDir} onChange={e=>upd('inDir',e.target.checked)} style={{width:'auto',accentColor:'var(--primary)'}}/>
+            <label htmlFor="inDirEdit" style={{fontSize:'.85rem',color:'var(--gray-700)',cursor:'pointer',fontWeight:'normal',marginBottom:0}}>
+              Figurer dans l'annuaire des participants (visible par les autres étudiants)
+            </label>
+          </div>
+          <div style={{fontSize:'.8rem',color:'var(--gray-500)',marginBottom:'1rem',lineHeight:1.5}}>
+            E-mail : <strong>{user.email}</strong> · Promotion : <strong>{user.promo}</strong><br/>
+            Pour changer d'adresse e-mail ou de promotion, écrivez à la coordination du DIU.
+          </div>
+          <div style={{display:'flex',gap:'.75rem',flexWrap:'wrap'}}>
+            <button className="btn btn-secondary" onClick={resetPw} style={{flex:1,justifyContent:'center'}}>🔁 Changer mon mot de passe</button>
+            <button className="btn btn-primary" onClick={save} disabled={saving} style={{flex:1,justifyContent:'center'}}>
+              {saving?<><span className="spinner"></span> Enregistrement...</>:'✓ Enregistrer'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ===== MAIN APP =====
    La session est celle de Firebase Auth (e-mail + mot de passe).
    Écrans : loading, welcome, register, blocked, error, home. */
@@ -1557,6 +1630,7 @@ function App(){
     {id:'resources',label:'📚 Ressources'},
     {id:'annuaire',label:'👥 Annuaire'},
     {id:'messages',label:unread>0?`✉️ Messages (${unread})`:'✉️ Messages'},
+    {id:'profil',label:'👤 Mon profil'},
     ...(isAdmin?[{id:'admin',label:'⚙️ Admin'}]:[])
   ];
 
@@ -1588,6 +1662,7 @@ function App(){
         {tab==='resources'&&<Resources user={me}/>}
         {tab==='annuaire'&&<Annuaire user={me}/>}
         {tab==='messages'&&<Messaging user={me}/>}
+        {tab==='profil'&&<ProfileEdit user={me} onSaved={ch=>setUser(u=>({...u,...ch}))}/>}
         {tab==='admin'&&isAdmin&&<AdminDash me={me}/>}
       </div>
     </div>
